@@ -1,0 +1,64 @@
+#!/bin/bash
+set -euo pipefail
+
+data="${XDG_DATA_HOME:-$HOME/.local/share}/omarchy-overlord"
+board="$data/board.json"
+bak="$data/board.json.overlord-bak"
+missing="$data/board.json.overlord-missing"
+
+if [[ -f $bak || -f $missing ]]; then
+  echo "A fixture backup is already in place. Run scripts/restore-board first." >&2
+  exit 1
+fi
+
+mkdir -p "$data"
+if [[ -f $board ]]; then
+  cp -a "$board" "$bak"
+else
+  : > "$missing"
+fi
+
+BOARD="$board" node --input-type=module <<'JS'
+import { writeFileSync } from "node:fs"
+
+const board = process.env.BOARD
+const now = Date.now()
+const cards = [
+  { id: "do-short", text: "Ship the note", urgent: true, important: true },
+  { id: "do-long", text: "A long title that should elide instead of wrapping in the row", urgent: true, important: true },
+  { id: "do-lines", text: "First line is the card\nSecond line stays in the editor", urgent: true, important: true }
+]
+for (let i = 1; i <= 12; i++) {
+  cards.push({
+    id: "sched-" + i,
+    text: "scroll " + String(i).padStart(2, "0"),
+    urgent: false,
+    important: true
+  })
+}
+cards.push(
+  { id: "del-sam", text: "Ask Sam", urgent: true, important: false, delegatedAt: now - 60 * 1000 },
+  { id: "del-riley", text: "Ask Riley", urgent: true, important: false, delegatedAt: now - 2 * 60 * 1000 },
+  { id: "del-stale", text: "stale handoff", urgent: true, important: false, delegatedAt: now - 25 * 60 * 60 * 1000 },
+  { id: "drop-bin", text: "bin me", urgent: false, important: false }
+)
+for (const card of cards) {
+  card.createdAt = now
+  card.updatedAt = now
+  if (card.delegatedAt === undefined) card.delegatedAt = null
+}
+writeFileSync(board, JSON.stringify({
+  version: 1,
+  simple: false,
+  confirmDelete: true,
+  stats: { do: 4, schedule: 2, delegate: 3, eliminate: 1 },
+  cards
+}, null, 2) + "\n")
+JS
+
+echo "Fixture written to $board"
+echo "Walk tests/ui.md. Restore with scripts/restore-board."
+if ! omarchy restart shell; then
+  echo "Shell did not restart. Unlock the session and run: omarchy restart shell" >&2
+  exit 1
+fi

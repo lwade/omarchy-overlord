@@ -1,0 +1,23 @@
+#!/bin/bash
+set -euo pipefail
+
+data="${XDG_DATA_HOME:-$HOME/.local/share}/omarchy-overlord"
+board="$data/board.json"
+bak="$data/board.json.overlord-bak"
+missing="$data/board.json.overlord-missing"
+
+if [[ -f $bak ]]; then
+  cp -a "$bak" "$board"
+  rm -f "$bak"
+elif [[ -f $missing ]]; then
+  rm -f "$board" "$missing"
+else
+  echo "No fixture backup at $bak" >&2
+  exit 1
+fi
+
+echo "Board restored."
+if ! omarchy restart shell; then
+  echo "Shell did not restart. Unlock the session and run: omarchy restart shell" >&2
+  exit 1
+fi

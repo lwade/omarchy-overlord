@@ -1,0 +1,12 @@
+#!/bin/bash
+set -euo pipefail
+
+root=$(CDPATH= cd -- "$(dirname -- "$0")/.." && pwd)
+id=io.github.lwade.overlord
+dest="${HOME}/.config/omarchy/plugins/${id}"
+
+mkdir -p "$dest"
+rsync -a --delete --exclude .git --exclude scripts --exclude tests "$root"/ "$dest"/
+omarchy plugin validate "$dest"
+omarchy-shell shell rescanPlugins >/dev/null
+echo "Installed $id to $dest"

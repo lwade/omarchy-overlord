@@ -1,0 +1,23 @@
+{
+  "schemaVersion": 1,
+  "id": "io.github.lwade.overlord",
+  "name": "Overlord",
+  "version": "0.1.0",
+  "author": "Lester Wade",
+  "license": "MIT",
+  "description": "Local Eisenhower board for notes and tasks.",
+  "homepage": "https://github.com/lwade/omarchy-overlord",
+  "kinds": ["service", "bar-widget"],
+  "keepLoaded": true,
+  "entryPoints": {
+    "service": "Service.qml",
+    "barWidget": "BarWidget.qml"
+  },
+  "barWidget": {
+    "displayName": "Overlord",
+    "description": "Open the Eisenhower board.",
+    "category": "Apps",
+    "allowMultiple": false,
+    "defaultSection": "right"
+  }
+}
