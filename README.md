@@ -2,7 +2,13 @@
 
 Local Eisenhower board for notes and tasks. Runs inside the Omarchy shell. Nothing leaves the machine.
 
+## Usage
+
 Click the star. The board opens under the icon, the same way other bar plugins do. Add a note and it lands in Do. Drag it to Schedule, Delegate, or Eliminate. Eliminate asks first while Confirm is on. Delegate drops it after 24 hours. Simple hides Delegate and Eliminate. Search filters the cards in place. Each pane shows about 10 notes before it scrolls.
+
+![The star in the bar](docs/bar.png)
+
+![The open board](docs/board.png)
 
 ## Install
 
@@ -33,4 +39,4 @@ scripts/test
 omarchy plugin remove io.github.lwade.overlord
 ```
 
-The board file is left in place.
+The board file is left at `$XDG_DATA_HOME/omarchy-overlord/board.json`, or `~/.local/share/omarchy-overlord/board.json` when that variable is unset.

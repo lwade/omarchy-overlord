@@ -12,7 +12,7 @@ After load, "stale handoff" is gone. That flush counts as Eliminate.
 4. Chips read `3 Do`, `12 Schedule`, and `2 Delegate`. There is no Eliminate chip.
 5. The line under the header is `4 Done · 2 Scheduled · 3 Delegated · 2 Eliminated`. The quadrant titles stay Do, Schedule, Delegate, and Eliminate.
 6. Search and Add are the same height.
-7. Do, Schedule, Delegate, and Eliminate are all on the panel. The right column is not clipped. The gap under the boxes matches the gap between them.
+7. Do, Schedule, Delegate, and Eliminate are all on the panel. The right column is not clipped. The gap outside the boxes matches the panel padding on every side.
 8. Do shows three notes. The long title is one elided line. "First line is the card" does not show the second line.
 9. Schedule shows about 10 rows and scrolls to `scroll 12`. Do is the same height as Schedule. Delegate and Eliminate stay at about 5 rows.
 10. Delegate notes are dim and italic. `clears 24h` sits on the same line as DELEGATE.

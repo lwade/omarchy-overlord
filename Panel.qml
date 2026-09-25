@@ -605,11 +605,6 @@ Panel {
             }
           }
         }
-
-        Item {
-          width: parent.width
-          height: Style.space(8)
-        }
       }
 
       Rectangle {
