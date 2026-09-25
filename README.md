@@ -1,10 +1,10 @@
 # Overlord
 
-Overlord is an Omarchy shell plugin that provides local notes and task tracking. It is based on the Eisenhower Matrix (https://en.wikipedia.org/wiki/Time_management#Eisenhower_method). 
+Overlord is an Omarchy shell plugin that provides local notes and task tracking. It is based on the Eisenhower Matrix ([Wikipedia](https://en.wikipedia.org/wiki/Time_management#Eisenhower_method)). 
 
-The Eisenhower Matrix is a productivity, prioritization, and time-management tool designed to help you prioritize a list of tasks by categorizing them according to their urgency and importance. The name was coined by Stephen Covey, the author of The 7 Habits of Highly Effective People, who took inspiration from a speech given by Dwight D. "Ike" Eisenhower, the 34th President of the United States. Eisenhower quoted an unknown university president during a speech, stating, “I have two kinds of problems: the urgent, and the unimportant. The urgent are not important, and
-the important are never urgent.” 
-source: https://sps.columbia.edu/sites/default/files/2023-08/Eisenhower%20Matrix.pdf 
+> The Eisenhower Matrix is a productivity, prioritization, and time-management tool designed to help you prioritize a list of tasks by categorizing them according to their urgency and importance. The name was coined by Stephen Covey, the author of *The 7 Habits of Highly Effective People*, who took inspiration from a speech given by Dwight D. Eisenhower, the 34th President of the United States. Eisenhower quoted an unknown university president during a speech, stating, “I have two kinds of problems: the urgent, and the unimportant. The urgent are not important, and the important are never urgent.”
+
+Columbia University School of Professional Studies, Academic Resource Center. (2023). *[The Eisenhower Matrix](https://sps.columbia.edu/sites/default/files/2023-08/Eisenhower%20Matrix.pdf)*.
 
 Also sometimes called an Eisenhower Decision Matrix, Eisenhower Box, or Urgent-Important Matrix.
 
@@ -12,31 +12,29 @@ Also sometimes called an Eisenhower Decision Matrix, Eisenhower Box, or Urgent-I
 
 Click the star. The board opens under the icon, the same way other bar plugins do. 
 
-![The star in the bar](docs/bar.png)
-
 Add a note and it lands in Do to begin with.
 
-[Add a note](docs/add-note.mp4)
+![Add a note](docs/add-note.gif)
 
 Drag it to Schedule, Delegate, or Eliminate, according to the Eisenhower method and to apply a classification to the task.
 
-[Drag a note](docs/drag-note.mp4)
+![Drag a note](docs/drag-note.gif)
 
 Eliminate will delete immediately unless Confirm is toggled on.
 
-[Confirm delete](docs/confirm-delete.mp4)
+![Confirm delete](docs/confirm-delete.gif)
 
 Delegate drops it after 24 hours.
 
-[Delegate](docs/delegate.mp4)
+![Delegate](docs/delegate.gif)
 
 Simple hides Delegate and Eliminate and offers up a basic 2-pane task categorisation view.
 
-[Simple mode](docs/simple-mode.mp4)
+![Simple mode](docs/simple-mode.gif)
 
 Search filters the cards in place. Each pane shows about 10 notes before it starts scrolling. To configure the storage location for your notes, click the settings icon:
 
-[Notes folder](docs/notes-folder.mp4)
+![Notes folder](docs/notes-folder.gif)
 
 ## Install
 
