@@ -1,4 +1,5 @@
 import QtQuick
+import QtQuick.Dialogs
 import Quickshell
 import qs.Commons
 import qs.Ui
@@ -30,6 +31,8 @@ Panel {
   property string hoverKey: ""
   property string pendingDeleteId: ""
   property bool confirmOpen: false
+  property bool folderOpen: false
+  property string folderError: ""
 
   readonly property var board: service && service.board ? service.board : Model.emptyBoard()
   readonly property bool simple: service ? service.simple === true : false
@@ -101,11 +104,77 @@ Panel {
   readonly property int cornerRadius: Style.cornerRadius
   readonly property string fontFamily: bar && bar.fontFamily ? bar.fontFamily : Style.font.family
 
+  onServiceChanged: pushNotesDir()
+  onSettingsChanged: pushNotesDir()
+  Component.onCompleted: pushNotesDir()
+
   Timer {
     interval: 250
     repeat: true
     running: root.bar !== null && root.service === null
     onTriggered: root.serviceLookup++
+  }
+
+  function savedNotesDir() {
+    var value = settings && settings.notesDir
+    return typeof value === "string" ? Model.notesDir(value) : ""
+  }
+
+  function pushNotesDir() {
+    if (service) service.setNotesDir(savedNotesDir())
+  }
+
+  function localPath(url) {
+    var text = String(url || "")
+    if (text.indexOf("file://") === 0) {
+      text = text.slice(7)
+      try { text = decodeURIComponent(text) } catch (e) {}
+    }
+    return text
+  }
+
+  function persistNotesDir(dir) {
+    var entry = { id: moduleName }
+    var current = settings || {}
+    for (var key in current) if (key !== "id") entry[key] = current[key]
+    if (dir) entry.notesDir = dir
+    else delete entry.notesDir
+    settings = entry
+    if (hostWidget && "settings" in hostWidget) hostWidget.settings = entry
+    if (bar && bar.shell && typeof bar.shell.updateEntryInline === "function")
+      bar.shell.updateEntryInline(moduleName, entry)
+    if (service) service.setNotesDir(dir)
+  }
+
+  function beginFolder() {
+    folderError = ""
+    folderOpen = true
+    Qt.callLater(function() {
+      dirField.text = service ? service.dataDir : ""
+      dirField.forceActiveFocus()
+    })
+  }
+
+  function cancelFolder() {
+    folderOpen = false
+    folderError = ""
+  }
+
+  function useDefaultFolder() {
+    folderError = ""
+    dirField.text = service ? service.defaultDir : ""
+  }
+
+  function commitFolder() {
+    var raw = String(dirField.text || "").trim()
+    var dir = Model.notesDir(raw)
+    if (raw && !dir) {
+      folderError = "Use a full path."
+      return
+    }
+    if (service && dir === Model.notesDir(service.defaultDir)) dir = ""
+    persistNotesDir(dir)
+    cancelFolder()
   }
 
   function open() {
@@ -114,6 +183,7 @@ Panel {
     dragId = ""
     hoverKey = ""
     cancelDelete()
+    cancelFolder()
     root.controller.show()
     Qt.callLater(function() {
       if (root.opened) search.forceActiveFocus()
@@ -145,6 +215,7 @@ Panel {
 
   function handleEscape() {
     if (confirmOpen) cancelDelete()
+    else if (folderOpen) cancelFolder()
     else if (composerOpen) finishEdit()
     else if (query) clearSearch()
     else close()
@@ -407,7 +478,15 @@ Panel {
         anchors.top: parent.top
         spacing: Style.space(10)
 
-        PanelHero {
+        Item {
+          id: heroWrap
+          width: parent.width
+          implicitHeight: hero.implicitHeight
+          height: implicitHeight
+          z: 20
+
+          PanelHero {
+          id: hero
           width: parent.width
           title: "Overlord"
           meta: "Action this day"
@@ -449,9 +528,74 @@ Panel {
             }
           }
           iconComponent: Component {
-            Star {
-              iconSize: Style.font.display
-              color: root.foreground
+            Item {
+              implicitWidth: mark.width
+              implicitHeight: mark.height
+
+              Star {
+                id: mark
+                iconSize: Style.font.display
+                color: root.foreground
+              }
+
+              MouseArea {
+                id: logoMouse
+                anchors.fill: parent
+                hoverEnabled: true
+                acceptedButtons: Qt.NoButton
+              }
+
+              HoverTip {
+                anchors.top: mark.bottom
+                anchors.left: mark.left
+                anchors.topMargin: Style.space(4)
+                shown: logoMouse.containsMouse
+                text: "Operation Overlord was the Allied code name for the successful invasion of German-occupied Western Europe during World War II"
+              }
+            }
+          }
+        }
+
+          Text {
+            id: strapMetrics
+            visible: false
+            text: "ACTION THIS DAY"
+            font.family: root.fontFamily
+            font.pixelSize: Style.font.caption
+            font.bold: true
+            font.letterSpacing: 1.2
+          }
+
+          Text {
+            id: titleMetrics
+            visible: false
+            text: "Overlord"
+            font.family: root.fontFamily
+            font.pixelSize: Style.font.title
+            font.bold: true
+          }
+
+          MouseArea {
+            id: strapMouse
+            x: Style.font.display + Style.space(14)
+            y: {
+              var labels = titleMetrics.height + Style.space(2) + strapMetrics.height
+              var heroH = Math.max(Style.font.display, labels)
+              return (heroH - labels) / 2 + titleMetrics.height + Style.space(2)
+            }
+            width: strapMetrics.width
+            height: Math.max(strapMetrics.height, Style.space(14))
+            hoverEnabled: true
+            acceptedButtons: Qt.NoButton
+            z: 2
+
+            HoverTip {
+              anchors.top: parent.bottom
+              anchors.left: parent.left
+              anchors.topMargin: Style.space(4)
+              shown: strapMouse.containsMouse
+              maxTextWidth: Style.space(300)
+              text: "\"Action this day\" was a strict instruction and red label used by Winston Churchill during World War II to demand immediate action from his staff and government departments."
             }
           }
         }
@@ -513,19 +657,68 @@ Panel {
           id: toggles
           width: parent.width
           spacing: Style.space(16)
+          z: 20
+
+          Item {
+            implicitWidth: folderButton.implicitWidth
+            implicitHeight: simpleRow.implicitHeight
+
+            Item {
+            id: folderButton
+            property int glyph: Math.max(simpleLabel.font.pixelSize + 4, Math.round(simpleRow.implicitHeight * 0.82))
+            property int cursorPad: Style.space(2)
+            implicitWidth: glyph + cursorPad * 2
+            implicitHeight: glyph + cursorPad * 2
+            anchors.verticalCenter: parent.verticalCenter
+
+            BorderSurface {
+              anchors.fill: parent
+              visible: folderMouse.containsMouse
+              color: "transparent"
+              radius: Style.cornerRadius
+              borderSpec: Border.controlSpec("hover-cursor", root.foreground, Color.accent)
+            }
+
+            Text {
+              anchors.centerIn: parent
+              text: "󰒓"
+              color: folderMouse.containsMouse ? Color.accent : root.foreground
+              font.family: root.fontFamily
+              font.pixelSize: folderButton.glyph
+              font.bold: true
+            }
+
+            MouseArea {
+              id: folderMouse
+              anchors.fill: parent
+              hoverEnabled: true
+              cursorShape: Qt.PointingHandCursor
+              onClicked: root.beginFolder()
+            }
+
+              HoverTip {
+                anchors.top: parent.bottom
+                anchors.left: parent.left
+                anchors.topMargin: Style.space(4)
+                shown: folderMouse.containsMouse
+                text: "Settings"
+              }
+            }
+          }
 
           Row {
+            id: simpleRow
             spacing: Style.space(6)
             PanelSectionHeader {
               id: simpleLabel
               text: "Simple"
               foreground: root.foreground
               fontFamily: root.fontFamily
+              bottomPadding: topPadding
               anchors.verticalCenter: parent.verticalCenter
             }
             ToggleSwitch {
               anchors.verticalCenter: simpleLabel.verticalCenter
-              anchors.verticalCenterOffset: Math.round(simpleLabel.topPadding / 2)
               checked: root.simple
               trackHeight: Math.round(simpleLabel.font.pixelSize * 1.2)
               cursorPad: Style.space(3)
@@ -536,17 +729,18 @@ Panel {
           }
 
           Row {
+            id: confirmRow
             spacing: Style.space(6)
             PanelSectionHeader {
               id: confirmLabel
               text: "Confirm Delete?"
               foreground: root.foreground
               fontFamily: root.fontFamily
+              bottomPadding: topPadding
               anchors.verticalCenter: parent.verticalCenter
             }
             ToggleSwitch {
               anchors.verticalCenter: confirmLabel.verticalCenter
-              anchors.verticalCenterOffset: Math.round(confirmLabel.topPadding / 2)
               checked: root.confirmDelete
               trackHeight: Math.round(confirmLabel.font.pixelSize * 1.2)
               cursorPad: Style.space(3)
@@ -643,6 +837,116 @@ Panel {
         fontFamily: root.fontFamily
         onCanceled: root.cancelDelete()
         onConfirmed: root.commitDelete()
+      }
+
+      FolderDialog {
+        id: folderPicker
+        title: "Notes folder"
+        onAccepted: dirField.text = root.localPath(selectedFolder)
+      }
+
+      Item {
+        anchors.fill: parent
+        visible: root.folderOpen
+        z: 7
+
+        MouseArea {
+          anchors.fill: parent
+          onClicked: root.cancelFolder()
+        }
+
+        Rectangle {
+          anchors.fill: parent
+          color: root.background
+
+          MouseArea { anchors.fill: parent; onClicked: {} }
+
+          PanelSectionHeader {
+            id: folderHeading
+            anchors.left: parent.left
+            anchors.top: parent.top
+            text: "NOTES FOLDER"
+            foreground: root.foreground
+            fontFamily: root.fontFamily
+          }
+
+          TextField {
+            id: dirField
+            anchors.left: parent.left
+            anchors.right: parent.right
+            anchors.top: folderHeading.bottom
+            anchors.topMargin: Style.space(8)
+            height: Style.spacing.controlHeight
+            placeholderText: "/path/to/cloud/folder"
+            font.family: root.fontFamily
+            font.pixelSize: Style.font.body
+            foreground: root.foreground
+            Keys.onEscapePressed: function(event) {
+              root.cancelFolder()
+              event.accepted = true
+            }
+            Keys.onReturnPressed: function(event) {
+              root.commitFolder()
+              event.accepted = true
+            }
+            onTextChanged: root.folderError = ""
+          }
+
+          Text {
+            anchors.left: dirField.left
+            anchors.right: parent.right
+            anchors.top: dirField.bottom
+            anchors.topMargin: Style.space(6)
+            text: root.folderError !== "" ? root.folderError : "The file is always overlord.json."
+            color: root.folderError !== "" ? root.urgent : root.dim
+            font.family: root.fontFamily
+            font.pixelSize: Style.font.caption
+            elide: Text.ElideRight
+          }
+
+          Row {
+            id: folderActions
+            anchors.left: parent.left
+            anchors.right: parent.right
+            anchors.bottom: parent.bottom
+            spacing: Style.space(8)
+
+            Button {
+              id: browseButton
+              text: "Browse"
+              bordered: true
+              foreground: root.foreground
+              fontFamily: root.fontFamily
+              fontSize: Style.font.caption
+              onClicked: folderPicker.open()
+            }
+
+            Item {
+              width: Math.max(0, folderActions.width - browseButton.width - defaultButton.width - folderDone.width - folderActions.spacing * 2)
+              height: 1
+            }
+
+            Button {
+              id: defaultButton
+              text: "Default"
+              bordered: true
+              foreground: root.foreground
+              fontFamily: root.fontFamily
+              fontSize: Style.font.caption
+              onClicked: root.useDefaultFolder()
+            }
+
+            Button {
+              id: folderDone
+              text: "Done"
+              bordered: true
+              foreground: root.foreground
+              fontFamily: root.fontFamily
+              fontSize: Style.font.caption
+              onClicked: root.commitFolder()
+            }
+          }
+        }
       }
 
       Item {

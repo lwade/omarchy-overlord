@@ -36,6 +36,18 @@ function bumpStats(board, key, by) {
   return stats
 }
 
+function notesDir(value) {
+  var next = String(value || "").trim()
+  if (!next || next.charAt(0) !== "/") return ""
+  while (next.length > 1 && next.charAt(next.length - 1) === "/")
+    next = next.slice(0, next.length - 1)
+  var parts = next.split("/")
+  for (var i = 0; i < parts.length; i++) {
+    if (parts[i] === "..") return ""
+  }
+  return next
+}
+
 function emptyBoard() {
   return { version: 1, simple: false, confirmDelete: true, stats: emptyStats(), cards: [] }
 }

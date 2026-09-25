@@ -29,4 +29,4 @@ After load, "stale handoff" is gone. That flush counts as Eliminate.
 
 ## File
 
-The board file is `$XDG_DATA_HOME/omarchy-overlord/board.json`, or `~/.local/share/omarchy-overlord/board.json`. Copy that file to back it up or move it. A hand edit is not picked up until the shell restarts.
+The board file is `$XDG_DATA_HOME/omarchy-overlord/overlord.json`, or `~/.local/share/omarchy-overlord/overlord.json`. Copy that file to back it up or move it. A hand edit is not picked up until the shell restarts.

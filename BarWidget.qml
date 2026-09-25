@@ -41,7 +41,10 @@ BarWidget {
   implicitHeight: button.implicitHeight
 
   onBarChanged: injectPanel()
-  onSettingsChanged: injectPanel()
+  onSettingsChanged: {
+    injectPanel()
+    if (panelLoader.item && panelLoader.item.pushNotesDir) panelLoader.item.pushNotesDir()
+  }
 
   Loader {
     id: panelLoader

@@ -2,9 +2,9 @@
 set -euo pipefail
 
 data="${XDG_DATA_HOME:-$HOME/.local/share}/omarchy-overlord"
-board="$data/board.json"
-bak="$data/board.json.overlord-bak"
-missing="$data/board.json.overlord-missing"
+board="$data/overlord.json"
+bak="$data/overlord.json.overlord-bak"
+missing="$data/overlord.json.overlord-missing"
 
 if [[ -f $bak ]]; then
   cp -a "$bak" "$board"

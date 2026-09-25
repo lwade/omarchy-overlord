@@ -18,6 +18,18 @@
     "description": "Open the Eisenhower board.",
     "category": "Apps",
     "allowMultiple": false,
-    "defaultSection": "right"
+    "defaultSection": "right",
+    "defaults": {
+      "notesDir": ""
+    },
+    "schema": [
+      {
+        "key": "notesDir",
+        "type": "string",
+        "label": "Notes folder",
+        "description": "Directory for overlord.json. Empty uses the default data folder.",
+        "defaultValue": ""
+      }
+    ]
   }
 }

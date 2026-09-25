@@ -31,6 +31,14 @@ TestCase {
     return Model.parse(JSON.stringify(raw))
   }
 
+  function test_notesDir() {
+    compare(Model.notesDir(""), "")
+    compare(Model.notesDir("relative/path"), "")
+    compare(Model.notesDir("/cloud/notes/"), "/cloud/notes")
+    compare(Model.notesDir("/cloud/../notes"), "")
+    compare(Model.notesDir("  /home/lzw/Nextcloud/overlord  "), "/home/lzw/Nextcloud/overlord")
+  }
+
   function test_emptyBoardDefaults() {
     var board = Model.emptyBoard()
     compare(board.version, 1)

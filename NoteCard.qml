@@ -116,10 +116,12 @@ Rectangle {
       onClicked: card.tickRequested()
     }
 
-    PanelToolTip {
-      visible: card.tickTip !== "" && tickMouse.containsMouse
+    HoverTip {
+      anchors.top: parent.bottom
+      anchors.left: parent.left
+      anchors.topMargin: Style.space(4)
+      shown: card.tickTip !== "" && tickMouse.containsMouse
       text: card.tickTip
-      fontFamily: card.fontFamily
     }
   }
 

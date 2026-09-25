@@ -11,14 +11,35 @@ Item {
   property var board: Model.emptyBoard()
   property bool loaded: false
 
+  property string notesDir: ""
+  property bool mkdirAgain: false
+  property bool ready: false
+
   readonly property bool simple: board.simple === true
   readonly property bool confirmDelete: board.confirmDelete !== false
-  readonly property string dataDir: {
+  readonly property string defaultDir: {
     var base = Quickshell.env("XDG_DATA_HOME")
     if (!base) base = Quickshell.env("HOME") + "/.local/share"
     return base + "/omarchy-overlord"
   }
-  readonly property string boardPath: dataDir + "/board.json"
+  readonly property string dataDir: notesDir !== "" ? notesDir : defaultDir
+  readonly property string boardPath: dataDir + "/overlord.json"
+  readonly property string legacyPath: dataDir + "/board.json"
+
+  function setNotesDir(dir) {
+    var next = Model.notesDir(dir)
+    if (next === notesDir) return
+    loaded = false
+    notesDir = next
+  }
+
+  onBoardPathChanged: if (ready) root.ensureDir()
+
+  function ensureDir() {
+    loaded = false
+    if (mkdir.running) mkdirAgain = true
+    else mkdir.running = true
+  }
 
   function commit(next) {
     if (!next || next === board) return
@@ -59,6 +80,15 @@ Item {
     commit(Model.flush(board, Date.now()))
   }
 
+  function importLegacy(raw) {
+    if (!raw || !String(raw).trim()) {
+      applyRaw("")
+      return
+    }
+    applyRaw(raw)
+    if (loaded) boardFile.setText(Model.serialize(board))
+  }
+
   function applyRaw(raw) {
     var parsed = Model.parse(raw)
     var flushed = Model.flush(parsed, Date.now())
@@ -77,7 +107,14 @@ Item {
   Process {
     id: mkdir
     command: ["mkdir", "-p", root.dataDir]
-    onExited: boardFile.reload()
+    onExited: {
+      if (root.mkdirAgain) {
+        root.mkdirAgain = false
+        running = true
+        return
+      }
+      boardFile.reload()
+    }
   }
 
   FileView {
@@ -87,8 +124,21 @@ Item {
     atomicWrites: true
     printErrors: false
     onLoaded: root.applyRaw(text())
+    onLoadFailed: legacyFile.reload()
+  }
+
+  FileView {
+    id: legacyFile
+    path: root.legacyPath
+    watchChanges: false
+    atomicWrites: false
+    printErrors: false
+    onLoaded: root.importLegacy(text())
     onLoadFailed: root.applyRaw("")
   }
 
-  Component.onCompleted: mkdir.running = true
+  Component.onCompleted: {
+    ready = true
+    root.ensureDir()
+  }
 }
