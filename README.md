@@ -1,3 +1,7 @@
+<p align="center">
+  <img src="docs/logo.png" alt="Overlord" width="96">
+</p>
+
 # Overlord
 
 Overlord is an Omarchy shell plugin that provides local notes and task tracking. It is based on the Eisenhower Matrix ([Wikipedia](https://en.wikipedia.org/wiki/Time_management#Eisenhower_method)). 
@@ -14,27 +18,27 @@ Click the star. The board opens under the icon, the same way other bar plugins d
 
 Add a note and it lands in Do to begin with.
 
-![Add a note](docs/add-note.gif)
+<img src="docs/add-note.gif" alt="Add a note" width="50%">
 
 Drag it to Schedule, Delegate, or Eliminate, according to the Eisenhower method and to apply a classification to the task.
 
-![Drag a note](docs/drag-note.gif)
+<img src="docs/drag-note.gif" alt="Drag a note" width="50%">
 
 Eliminate will delete immediately unless Confirm is toggled on.
 
-![Confirm delete](docs/confirm-delete.gif)
+<img src="docs/confirm-delete.gif" alt="Confirm delete" width="50%">
 
 Delegate drops it after 24 hours.
 
-![Delegate](docs/delegate.gif)
+<img src="docs/delegate.gif" alt="Delegate" width="50%">
 
 Simple hides Delegate and Eliminate and offers up a basic 2-pane task categorisation view.
 
-![Simple mode](docs/simple-mode.gif)
+<img src="docs/simple-mode.gif" alt="Simple mode" width="50%">
 
 Search filters the cards in place. Each pane shows about 10 notes before it starts scrolling. To configure the storage location for your notes, click the settings icon:
 
-![Notes folder](docs/notes-folder.gif)
+<img src="docs/notes-folder.gif" alt="Notes folder" width="50%">
 
 ## Install
 
