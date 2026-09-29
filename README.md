@@ -10,6 +10,13 @@ Overlord is an Omarchy shell plugin that provides local notes and task tracking.
 
 _Source: Columbia University School of Professional Studies, Academic Resource Center. (2023). *[The Eisenhower Matrix](https://sps.columbia.edu/sites/default/files/2023-08/Eisenhower%20Matrix.pdf)*._
 
+## Contents
+
+- [Usage](#usage)
+- [Install](#install)
+- [Managing notes](#managing-notes)
+- [Managing config](#managing-config)
+- [Remove](#remove)
 
 ## Usage
 
