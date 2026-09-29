@@ -45,26 +45,9 @@ Search filters the cards in place. Each pane shows about 10 notes before it star
 omarchy plugin add https://github.com/lwade/omarchy-overlord.git --enable
 ```
 
-## Develop
+## Managing notes
 
-Edit this clone, then copy it into the shell plugin directory. The shell rejects symlinks inside a plugin folder.
-
-```sh
-scripts/install-dev
-omarchy plugin enable io.github.lwade.overlord --section right
-```
-
-`keepLoaded` is set, so a change to `Service.qml` needs `omarchy restart shell`. Overlay and bar widget files reload on save after `scripts/install-dev`.
-
-```sh
-omarchy plugin validate .
-qmllint -I "$OMARCHY_PATH/shell" Service.qml Panel.qml BarWidget.qml NoteCard.qml Star.qml
-scripts/test
-```
-
-## Notes
-
-Notes, the Simple and Confirm Delete toggles, and the counters are one file:
+Back up the board by copying one file. It holds the notes, the Simple and Confirm Delete toggles, and the counters:
 
 ```text
 $XDG_DATA_HOME/omarchy-overlord/overlord.json
@@ -72,17 +55,17 @@ $XDG_DATA_HOME/omarchy-overlord/overlord.json
 
 If `XDG_DATA_HOME` is unset, that is `~/.local/share/omarchy-overlord/overlord.json`.
 
-Copy that file to back the board up. On another machine, install the plugin, put the file at the same path, then run `omarchy restart shell`. A replaced file is not picked up until the shell restarts.
+To move the board to another machine, install the plugin, put the file at the same path, then run `omarchy restart shell`. A replaced file is not picked up until the shell restarts.
 
-The folder button on the board can point the notes at another folder, such as a directory mounted from cloud storage. The file name stays `overlord.json`. Notes already in the old folder stay there until you copy them. An older `board.json` in the chosen folder is read once and saved as `overlord.json`.
+To keep the notes in another folder, such as one mounted from cloud storage, use the folder button on the board. The file name stays `overlord.json`. Notes already in the old folder stay there until you copy them. An older `board.json` in the chosen folder is read once and saved as `overlord.json`.
 
-## Config
+## Managing config
 
-The Simple and Confirm Delete toggles live in `overlord.json` with the notes.
+The toggles travel with the notes file, so a copy of `overlord.json` backs those up too.
 
-The notes folder is a separate setting, `notesDir`, stored with the bar widget in `~/.config/omarchy/shell.json`. Empty means the default path above. That setting is not inside the notes file, so the plugin can still find `overlord.json` after you move it.
+The notes folder is a separate setting, `notesDir`, in `~/.config/omarchy/shell.json`. Empty means the default path above. It is not inside the notes file, so the plugin can still find `overlord.json` after you move it. Copy `shell.json` if you want the same notes folder and bar placement on another machine.
 
-Which bar section the star sits in is Omarchy's own config, `~/.config/omarchy/shell.json`. That file is not the board. The installed plugin under `~/.config/omarchy/plugins/io.github.lwade.overlord` is the program, not your notes.
+The installed plugin under `~/.config/omarchy/plugins/io.github.lwade.overlord` is the program, not your notes.
 
 ## Remove
 
