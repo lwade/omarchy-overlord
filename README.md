@@ -4,13 +4,12 @@
 
 # Overlord
 
-Overlord is an Omarchy shell plugin that provides local notes and task tracking. It is based on the Eisenhower Matrix ([Wikipedia](https://en.wikipedia.org/wiki/Time_management#Eisenhower_method)). 
+Overlord is an Omarchy shell plugin that provides local notes and task tracking. It is based on the Eisenhower Matrix ([Wikipedia](https://en.wikipedia.org/wiki/Time_management#Eisenhower_method)), sometimes called an Eisenhower Decision Matrix, Eisenhower Box, or Urgent-Important Matrix.
 
 > The Eisenhower Matrix is a productivity, prioritization, and time-management tool designed to help you prioritize a list of tasks by categorizing them according to their urgency and importance. The name was coined by Stephen Covey, the author of *The 7 Habits of Highly Effective People*, who took inspiration from a speech given by Dwight D. Eisenhower, the 34th President of the United States. Eisenhower quoted an unknown university president during a speech, stating, “I have two kinds of problems: the urgent, and the unimportant. The urgent are not important, and the important are never urgent.”
 
-Columbia University School of Professional Studies, Academic Resource Center. (2023). *[The Eisenhower Matrix](https://sps.columbia.edu/sites/default/files/2023-08/Eisenhower%20Matrix.pdf)*.
+_Source: Columbia University School of Professional Studies, Academic Resource Center. (2023). *[The Eisenhower Matrix](https://sps.columbia.edu/sites/default/files/2023-08/Eisenhower%20Matrix.pdf)*._
 
-Also sometimes called an Eisenhower Decision Matrix, Eisenhower Box, or Urgent-Important Matrix.
 
 ## Usage
 
