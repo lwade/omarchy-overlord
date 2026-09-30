@@ -8,3 +8,4 @@ Omarchy shell plugin `io.github.lwade.overlord`. Quattro contract: `manifest.jso
 - Third-party `shell` is a facade. The bar widget toggles its own panel. Read state with `bar.shell.serviceFor(moduleName)`.
 - `keepLoaded` is true. Service code changes need `omarchy restart shell`.
 - Validate with `omarchy plugin validate .` and `qmllint -I "$OMARCHY_PATH/shell"`.
+- Marketplace listing `io.github.lwade.overlord` does not follow `main`. New installs get the approved commit. A newer HEAD is `Update unverified` until a verification issue for that full SHA is maintainer-approved. `omarchy plugin update` on an existing git install can fast-forward to `main` without that. Do not open a second `[Plugin]:` submission for a later commit.
