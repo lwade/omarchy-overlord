@@ -82,4 +82,8 @@ The installed plugin under `~/.config/omarchy/plugins/io.github.lwade.overlord` 
 omarchy plugin remove io.github.lwade.overlord
 ```
 
-The board file is left in place.
+That unloads the plugin and deletes the installed program at `~/.config/omarchy/plugins/io.github.lwade.overlord`. A normal `plugin add` is a git checkout, so that folder is deleted. A copied folder that is not a git checkout is moved to a hidden backup next to it. A symlink is only unlinked.
+
+If the plugin was enabled, its bar entry is removed from `~/.config/omarchy/shell.json`. That drops the notes-folder setting and the bar placement. It does not delete a custom notes folder.
+
+`overlord.json` is left behind on purpose. That file is how you save the notes, toggles, and counters. Copy it before you reinstall, or put it back at the same path afterward.
