@@ -52,6 +52,8 @@ Search filters the cards in place. Each pane shows about 10 notes before it star
 omarchy plugin add https://github.com/lwade/omarchy-overlord.git --enable
 ```
 
+No extra packages. The plugin uses the Omarchy shell only. License: MIT.
+
 ## Managing notes
 
 Back up the board by copying one file. It holds the notes, the Simple and Confirm Delete toggles, and the counters:

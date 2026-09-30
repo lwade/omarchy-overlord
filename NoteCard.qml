@@ -35,6 +35,7 @@ Rectangle {
     anchors.leftMargin: showTick ? Style.space(22) : Style.space(4)
     anchors.rightMargin: showDelete ? Style.space(26) : Style.space(4)
     text: card.label
+    textFormat: Text.PlainText
     elide: Text.ElideRight
     verticalAlignment: Text.AlignVCenter
     color: fading ? card.dim : card.foreground
