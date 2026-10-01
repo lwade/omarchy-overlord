@@ -5,7 +5,20 @@ root=$(CDPATH= cd -- "$(dirname -- "$0")/.." && pwd)
 id=io.github.lwade.overlord
 dest="${HOME}/.config/omarchy/plugins/${id}"
 
+if [[ -L $dest ]]; then
+  echo "scripts/install-dev: refusing to install: $dest is a symlink" >&2
+  exit 1
+fi
+if [[ -e $dest && ! -d $dest ]]; then
+  echo "scripts/install-dev: refusing to install: $dest is not a directory" >&2
+  exit 1
+fi
+
 mkdir -p "$dest"
+if [[ -L $dest ]]; then
+  echo "scripts/install-dev: refusing to install: $dest is a symlink" >&2
+  exit 1
+fi
 rsync -a --delete --exclude .git --exclude scripts --exclude tests "$root"/ "$dest"/
 omarchy plugin validate "$dest"
 omarchy-shell shell rescanPlugins >/dev/null
