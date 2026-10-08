@@ -66,7 +66,7 @@ If `XDG_DATA_HOME` is unset, that is `~/.local/share/omarchy-overlord/overlord.j
 
 To move the board to another machine, install the plugin, put the file at the same path, then run `omarchy restart shell`. A replaced file is not picked up until the shell restarts.
 
-To keep the notes in another folder, such as one mounted from cloud storage, use the folder button on the board. The file name stays `overlord.json`. Notes already in the old folder stay there until you copy them. An older `board.json` in the chosen folder is read once and saved as `overlord.json`.
+To keep the notes in another folder, such as one mounted from cloud storage, use the folder button on the board. The file name stays `overlord.json`. Notes already in the old folder stay there until you copy them. A failed read does not replace an existing board.
 
 ## Managing config
 
