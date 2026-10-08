@@ -15,6 +15,15 @@ Item {
   property bool mkdirAgain: false
   property bool ready: false
   property int loadAttempts: 0
+  property int loadGeneration: 0
+  property string expectedPath: ""
+  property string checkedPath: ""
+  property int checkedGeneration: 0
+  property bool checkAgain: false
+  property string writePath: ""
+  property int writeGeneration: 0
+  property string writeMode: ""
+  property bool writeAgain: false
 
   readonly property bool simple: board.simple === true
   readonly property bool confirmDelete: board.confirmDelete !== false
@@ -29,22 +38,29 @@ Item {
   function setNotesDir(dir) {
     var next = Model.notesDir(dir)
     if (next === notesDir) return
-    loaded = false
     notesDir = next
   }
 
   onBoardPathChanged: if (ready) root.ensureDir()
 
-  function ensureDir() {
+  function beginLoad() {
+    loadGeneration++
+    loadAttempts = 0
+    retryTimer.stop()
     loaded = false
+    expectedPath = boardPath
+  }
+
+  function ensureDir() {
+    root.beginLoad()
     if (mkdir.running) mkdirAgain = true
     else mkdir.running = true
   }
 
   function commit(next) {
-    if (!next || next === board) return
+    if (!loaded || !next || next === board) return
     board = next
-    if (loaded) boardFile.setText(Model.serialize(board))
+    root.requestWrite(boardPath, loadGeneration, "save")
   }
 
   function add(text, quadrant) {
@@ -91,6 +107,10 @@ Item {
     }
   }
 
+  function sameLoad(path, gen) {
+    return gen === loadGeneration && path === boardPath && path === expectedPath
+  }
+
   function retryLoad() {
     if (loadAttempts >= 3) return
     loadAttempts++
@@ -98,29 +118,93 @@ Item {
   }
 
   function onBoardLoadFailed(error) {
+    if (boardPath !== expectedPath) return
+    loaded = false
     if (error !== FileViewError.FileNotFound) {
       root.retryLoad()
       return
     }
-    if (!missingCheck.running) missingCheck.running = true
+    root.confirmMissing(boardPath, loadGeneration)
   }
 
-  function createBoard() {
-    root.applyRaw("")
-    if (root.loaded) boardFile.setText(Model.serialize(root.board))
+  function confirmMissing(path, gen) {
+    if (!root.sameLoad(path, gen)) return
+    checkedPath = path
+    checkedGeneration = gen
+    if (missingCheck.running) {
+      checkAgain = true
+      return
+    }
+    missingCheck.command = ["test", "!", "-e", path]
+    missingCheck.running = true
   }
 
-  function applyRaw(raw) {
-    if (!root.boardTextOk(raw)) {
+  function onMissingChecked(exitCode) {
+    var path = checkedPath
+    var gen = checkedGeneration
+    if (checkAgain) {
+      checkAgain = false
+      root.confirmMissing(boardPath, loadGeneration)
+      return
+    }
+    if (!root.sameLoad(path, gen)) return
+    if (exitCode !== 0) {
       root.retryLoad()
       return
     }
+    root.requestWrite(path, gen, "create")
+  }
+
+  function requestWrite(path, gen, mode) {
+    if (!root.sameLoad(path, gen)) return
+    if (mode === "save" && !loaded) return
+    writePath = path
+    writeGeneration = gen
+    writeMode = mode
+    if (writeGuard.running) {
+      writeAgain = true
+      return
+    }
+    writeGuard.command = mode === "create"
+      ? ["test", "!", "-e", path, "-a", "!", "-L", path]
+      : ["test", "!", "-L", path]
+    writeGuard.running = true
+  }
+
+  function onWriteGuard(exitCode) {
+    var path = writePath
+    var gen = writeGeneration
+    var mode = writeMode
+    if (writeAgain) {
+      writeAgain = false
+      root.requestWrite(boardPath, loadGeneration, loaded ? "save" : "create")
+      return
+    }
+    if (exitCode !== 0 || !root.sameLoad(path, gen)) return
+    if (mode === "create") {
+      root.applyRaw("")
+      if (root.loaded && root.sameLoad(path, gen))
+        boardFile.setText(Model.serialize(board))
+      return
+    }
+    if (!loaded) return
+    boardFile.setText(Model.serialize(board))
+  }
+
+  function applyRaw(raw) {
+    if (boardPath !== expectedPath) return
+    if (!root.boardTextOk(raw)) {
+      loaded = false
+      root.retryLoad()
+      return
+    }
+    retryTimer.stop()
     var parsed = Model.parse(raw)
     var flushed = Model.flush(parsed, Date.now())
     board = flushed
     loaded = true
     loadAttempts = 0
-    if (flushed !== parsed) boardFile.setText(Model.serialize(flushed))
+    if (flushed !== parsed) root.requestWrite(boardPath, loadGeneration, "save")
   }
 
   Timer {
@@ -138,11 +222,12 @@ Item {
 
   Process {
     id: missingCheck
-    command: ["test", "!", "-e", root.boardPath]
-    onExited: function(exitCode) {
-      if (exitCode === 0) root.createBoard()
-      else root.retryLoad()
-    }
+    onExited: function(exitCode) { root.onMissingChecked(exitCode) }
+  }
+
+  Process {
+    id: writeGuard
+    onExited: function(exitCode) { root.onWriteGuard(exitCode) }
   }
 
   Process {
@@ -154,6 +239,7 @@ Item {
         running = true
         return
       }
+      if (root.boardPath !== root.expectedPath) return
       boardFile.reload()
     }
   }

@@ -1,0 +1,75 @@
+#!/bin/bash
+
+session_var() {
+  local key=$1
+  local val=${!key-}
+  local from_session
+  from_session=$(systemctl --user show-environment 2>/dev/null | sed -n "s/^${key}=//p" | tail -n 1)
+  if [[ -n $from_session ]]; then
+    printf '%s' "$from_session"
+  else
+    printf '%s' "$val"
+  fi
+}
+
+notes_dir_from_shell() {
+  local home config file dir
+  home=$(session_var HOME)
+  config=$(session_var XDG_CONFIG_HOME)
+  [[ -n $config ]] || config="$home/.config"
+  file="$config/omarchy/shell.json"
+  [[ -f $file && ! -L $file ]] || return 0
+  python3 - "$file" <<'PY'
+import json, sys
+path = sys.argv[1]
+try:
+    data = json.load(open(path))
+except Exception:
+    sys.exit(0)
+
+def walk(node):
+    if isinstance(node, dict):
+        if node.get("id") == "io.github.lwade.overlord":
+            return node.get("notesDir") or ""
+        for value in node.values():
+            found = walk(value)
+            if found:
+                return found
+    elif isinstance(node, list):
+        for value in node:
+            found = walk(value)
+            if found:
+                return found
+    return ""
+
+raw = str(walk(data)).strip()
+if not raw.startswith("/"):
+    sys.exit(0)
+while len(raw) > 1 and raw.endswith("/"):
+    raw = raw[:-1]
+if ".." in raw.split("/"):
+    sys.exit(0)
+print(raw)
+PY
+}
+
+board_dir() {
+  local dir home data
+  dir=$(notes_dir_from_shell || true)
+  if [[ -n $dir ]]; then
+    printf '%s\n' "$dir"
+    return
+  fi
+  home=$(session_var HOME)
+  data=$(session_var XDG_DATA_HOME)
+  [[ -n $data ]] || data="$home/.local/share"
+  printf '%s\n' "$data/omarchy-overlord"
+}
+
+refuse_link() {
+  local path=$1
+  if [[ -L $path ]]; then
+    echo "refusing to touch symlink: $path" >&2
+    exit 1
+  fi
+}

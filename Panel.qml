@@ -221,10 +221,17 @@ Panel {
     else close()
   }
 
+  function boardReady() {
+    return service && service.loaded
+  }
+
   function askDelete(id) {
-    if (!id) return
+    if (!id || !boardReady()) return
     pendingDeleteId = id
     confirmOpen = true
+    Qt.callLater(function() {
+      if (root.confirmOpen) keyCatcher.forceActiveFocus()
+    })
   }
 
   function cancelDelete() {
@@ -235,7 +242,7 @@ Panel {
   function commitDelete() {
     var id = pendingDeleteId
     cancelDelete()
-    if (service && id) service.remove(id)
+    if (boardReady() && id) service.remove(id)
   }
 
   function beginAdd(quadrant) {
@@ -261,6 +268,7 @@ Panel {
 
   function finishEdit() {
     if (!composerOpen) return
+    if (!boardReady()) return
     var text = editor.text
     var id = editingId
     composerOpen = false
@@ -315,7 +323,9 @@ Panel {
     dragId = ""
     dragLabel = ""
     hoverKey = ""
-    if (!key || !service || !id) return
+    if (!key || !boardReady() || !id) return
+    var card = Model.find(board, id)
+    if (card && Model.quadrant(card) === key) return
     if (key === "drop") {
       if (confirmDelete) askDelete(id)
       else service.remove(id)
@@ -416,10 +426,11 @@ Panel {
             dragging: root.dragId === modelData.id
             onActivated: root.beginEdit(note.noteId)
             onDeleteRequested: {
+              if (!root.boardReady()) return
               if (root.confirmDelete) root.askDelete(note.noteId)
-              else if (root.service) root.service.remove(note.noteId)
+              else root.service.remove(note.noteId)
             }
-            onTickRequested: if (root.service) root.service.tick(note.noteId)
+            onTickRequested: if (root.boardReady()) root.service.tick(note.noteId)
             onDragMoved: function(x, y) {
               root.trackDrag(note, x, y, note.noteId, note.label)
             }
@@ -982,6 +993,7 @@ Panel {
             anchors.bottom: done.top
             anchors.topMargin: Style.space(8)
             anchors.bottomMargin: Style.space(8)
+            enabled: root.composerOpen
             wrapMode: TextEdit.Wrap
             selectByMouse: true
             color: root.foreground

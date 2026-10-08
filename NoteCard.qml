@@ -64,7 +64,7 @@ Rectangle {
 
     onPositionChanged: function(m) {
       if (!held) return
-      if (!moved && (Math.abs(m.x - startX) > 4 || Math.abs(m.y - startY) > 4))
+      if (!moved && (Math.abs(m.x - startX) > 12 || Math.abs(m.y - startY) > 12))
         moved = true
       if (moved) card.dragMoved(m.x, m.y)
     }

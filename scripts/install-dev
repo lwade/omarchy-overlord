@@ -3,23 +3,48 @@ set -euo pipefail
 
 root=$(CDPATH= cd -- "$(dirname -- "$0")/.." && pwd)
 id=io.github.lwade.overlord
-dest="${HOME}/.config/omarchy/plugins/${id}"
+plugins="${HOME}/.config/omarchy/plugins"
+dest="${plugins}/${id}"
 
-if [[ -L $dest ]]; then
-  echo "scripts/install-dev: refusing to install: $dest is a symlink" >&2
+refuse() {
+  echo "scripts/install-dev: $*" >&2
   exit 1
-fi
+}
+
+path=$dest
+while true; do
+  if [[ -L $path ]]; then
+    refuse "refusing to install: $path is a symlink"
+  fi
+  [[ $path == "$plugins" || $path == / ]] && break
+  path=${path%/*}
+done
+
 if [[ -e $dest && ! -d $dest ]]; then
-  echo "scripts/install-dev: refusing to install: $dest is not a directory" >&2
-  exit 1
+  refuse "refusing to install: $dest is not a directory"
 fi
 
+stage=$(mktemp -d)
+trap 'rm -rf "$stage"' EXIT
+rsync -a --exclude .git --exclude scripts --exclude tests "$root"/ "$stage"/
+omarchy plugin validate "$stage"
+
+mkdir -p "$plugins"
+if [[ -L $plugins || -L $dest ]]; then
+  refuse "refusing to install: destination is a symlink"
+fi
 mkdir -p "$dest"
 if [[ -L $dest ]]; then
-  echo "scripts/install-dev: refusing to install: $dest is a symlink" >&2
-  exit 1
+  refuse "refusing to install: $dest is a symlink"
 fi
-rsync -a --delete --exclude .git --exclude scripts --exclude tests "$root"/ "$dest"/
-omarchy plugin validate "$dest"
+
+cd "$dest"
+if [[ -L $dest ]]; then
+  refuse "refusing to install: $dest is a symlink"
+fi
+if [[ $(stat -c %d:%i .) != $(stat -c %d:%i "$dest") ]]; then
+  refuse "refusing to install: $dest changed during install"
+fi
+rsync -a --delete "$stage"/ ./
 omarchy-shell shell rescanPlugins >/dev/null
 echo "Installed $id to $dest"

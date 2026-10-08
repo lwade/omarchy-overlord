@@ -1,16 +1,25 @@
 #!/bin/bash
 set -euo pipefail
 
-data="${XDG_DATA_HOME:-$HOME/.local/share}/omarchy-overlord"
+root=$(CDPATH= cd -- "$(dirname -- "$0")" && pwd)
+# shellcheck source=fixture-common
+source "$root/fixture-common"
+
+data=$(board_dir)
 board="$data/overlord.json"
 bak="$data/overlord.json.overlord-bak"
 missing="$data/overlord.json.overlord-missing"
 
+refuse_link "$data"
+refuse_link "$board"
+refuse_link "$bak"
+refuse_link "$missing"
+
 if [[ -f $bak ]]; then
-  cp -a "$bak" "$board"
-  rm -f "$bak"
+  cp -a -- "$bak" "$board"
+  rm -f -- "$bak"
 elif [[ -f $missing ]]; then
-  rm -f "$board" "$missing"
+  rm -f -- "$board" "$missing"
 else
   echo "No fixture backup at $bak" >&2
   exit 1

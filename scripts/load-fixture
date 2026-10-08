@@ -1,7 +1,11 @@
 #!/bin/bash
 set -euo pipefail
 
-data="${XDG_DATA_HOME:-$HOME/.local/share}/omarchy-overlord"
+root=$(CDPATH= cd -- "$(dirname -- "$0")" && pwd)
+# shellcheck source=fixture-common
+source "$root/fixture-common"
+
+data=$(board_dir)
 board="$data/overlord.json"
 bak="$data/overlord.json.overlord-bak"
 missing="$data/overlord.json.overlord-missing"
@@ -11,15 +15,22 @@ if [[ -f $bak || -f $missing ]]; then
   exit 1
 fi
 
+refuse_link "$data"
 mkdir -p "$data"
+refuse_link "$data"
+refuse_link "$board"
+refuse_link "$bak"
+refuse_link "$missing"
+
 if [[ -f $board ]]; then
-  cp -a "$board" "$bak"
+  cp -a -- "$board" "$bak"
 else
   : > "$missing"
 fi
 
+refuse_link "$board"
 BOARD="$board" node --input-type=module <<'JS'
-import { writeFileSync } from "node:fs"
+import { constants, openSync, writeSync, closeSync } from "node:fs"
 
 const board = process.env.BOARD
 const now = Date.now()
@@ -47,13 +58,16 @@ for (const card of cards) {
   card.updatedAt = now
   if (card.delegatedAt === undefined) card.delegatedAt = null
 }
-writeFileSync(board, JSON.stringify({
+const body = JSON.stringify({
   version: 1,
   simple: false,
   confirmDelete: true,
   stats: { do: 4, schedule: 2, delegate: 3, eliminate: 1 },
   cards
-}, null, 2) + "\n")
+}, null, 2) + "\n"
+const fd = openSync(board, constants.O_WRONLY | constants.O_CREAT | constants.O_TRUNC | constants.O_NOFOLLOW)
+writeSync(fd, body)
+closeSync(fd)
 JS
 
 echo "Fixture written to $board"
