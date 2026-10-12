@@ -62,7 +62,7 @@ Back up the board by copying one file. It holds the notes, the Simple and Confir
 $XDG_DATA_HOME/omarchy-overlord/overlord.json
 ```
 
-If `XDG_DATA_HOME` is unset, that is `~/.local/share/omarchy-overlord/overlord.json`.
+If `XDG_DATA_HOME` is unset, that is `~/.local/share/omarchy-overlord/overlord.json`. That default folder is private to your user. A folder you choose can be shared.
 
 To move the board to another machine, install the plugin, put the file at the same path, then run `omarchy restart shell`. A replaced file is not picked up until the shell restarts.
 

@@ -24,6 +24,7 @@ Item {
   property int writeGeneration: 0
   property string writeMode: ""
   property bool writeAgain: false
+  property bool protectThenReload: false
 
   readonly property bool simple: board.simple === true
   readonly property bool confirmDelete: board.confirmDelete !== false
@@ -34,6 +35,7 @@ Item {
   }
   readonly property string dataDir: notesDir !== "" ? notesDir : defaultDir
   readonly property string boardPath: dataDir + "/overlord.json"
+  readonly property bool defaultStore: dataDir === defaultDir
 
   function setNotesDir(dir) {
     var next = Model.notesDir(dir)
@@ -53,8 +55,31 @@ Item {
 
   function ensureDir() {
     root.beginLoad()
+    root.startMkdir()
+  }
+
+  function startMkdir() {
+    mkdir.command = root.defaultStore
+      ? ["mkdir", "-p", "-m", "0700", root.dataDir]
+      : ["mkdir", "-p", root.dataDir]
     if (mkdir.running) mkdirAgain = true
     else mkdir.running = true
+  }
+
+  function protectDefaultStore(thenReload) {
+    protectThenReload = thenReload
+    if (!root.defaultStore) {
+      if (thenReload && root.boardPath === root.expectedPath) boardFile.reload()
+      return
+    }
+    if (protectStore.running) return
+    protectStore.command = [
+      "bash", "-c",
+      "chmod 0700 \"$1\" || exit 1; for f in \"$1/overlord.json\" \"$1/board.json\"; do if [ -e \"$f\" ] && [ ! -L \"$f\" ]; then chmod 0600 \"$f\" || exit 1; fi; done",
+      "overlord-protect",
+      root.defaultDir
+    ]
+    protectStore.running = true
   }
 
   function commit(next) {
@@ -236,9 +261,19 @@ Item {
     onExited: {
       if (root.mkdirAgain) {
         root.mkdirAgain = false
-        running = true
+        root.startMkdir()
         return
       }
+      if (root.boardPath !== root.expectedPath) return
+      root.protectDefaultStore(true)
+    }
+  }
+
+  Process {
+    id: protectStore
+    onExited: {
+      if (!root.protectThenReload) return
+      root.protectThenReload = false
       if (root.boardPath !== root.expectedPath) return
       boardFile.reload()
     }
@@ -252,6 +287,7 @@ Item {
     printErrors: false
     onLoaded: root.applyRaw(text())
     onLoadFailed: function(error) { root.onBoardLoadFailed(error) }
+    onSaved: if (root.defaultStore) root.protectDefaultStore(false)
   }
 
   Component.onCompleted: {
