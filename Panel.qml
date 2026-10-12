@@ -33,6 +33,8 @@ Panel {
   property bool confirmOpen: false
   property bool folderOpen: false
   property string folderError: ""
+  property string folderSeed: ""
+  property string editorSeed: ""
 
   readonly property var board: service && service.board ? service.board : Model.emptyBoard()
   readonly property bool simple: service ? service.simple === true : false
@@ -148,11 +150,8 @@ Panel {
 
   function beginFolder() {
     folderError = ""
+    folderSeed = service ? service.dataDir : ""
     folderOpen = true
-    Qt.callLater(function() {
-      dirField.text = service ? service.dataDir : ""
-      dirField.forceActiveFocus()
-    })
   }
 
   function cancelFolder() {
@@ -162,11 +161,12 @@ Panel {
 
   function useDefaultFolder() {
     folderError = ""
-    dirField.text = service ? service.defaultDir : ""
+    folderSeed = service ? service.defaultDir : ""
+    if (dirField.item) dirField.item.text = folderSeed
   }
 
   function commitFolder() {
-    var raw = String(dirField.text || "").trim()
+    var raw = dirField.item ? String(dirField.item.text || "").trim() : ""
     var dir = Model.notesDir(raw)
     if (raw && !dir) {
       folderError = "Use a full path."
@@ -186,7 +186,7 @@ Panel {
     cancelFolder()
     root.controller.show()
     Qt.callLater(function() {
-      if (root.opened) search.forceActiveFocus()
+      if (root.opened && search.item) search.item.forceActiveFocus()
     })
   }
 
@@ -210,7 +210,7 @@ Panel {
 
   function clearSearch() {
     query = ""
-    search.text = ""
+    if (search.item) search.item.text = ""
   }
 
   function handleEscape() {
@@ -248,28 +248,22 @@ Panel {
   function beginAdd(quadrant) {
     newQuadrant = quadrant || "do"
     editingId = "new"
+    editorSeed = ""
     composerOpen = true
-    Qt.callLater(function() {
-      editor.text = ""
-      editor.forceActiveFocus()
-    })
   }
 
   function beginEdit(id) {
     var card = Model.find(board, id)
-    if (!card) return
+    if (!card || !boardReady()) return
     editingId = id
+    editorSeed = card.text
     composerOpen = true
-    Qt.callLater(function() {
-      editor.text = card.text
-      editor.forceActiveFocus()
-    })
   }
 
   function finishEdit() {
     if (!composerOpen) return
     if (!boardReady()) return
-    var text = editor.text
+    var text = editor.item ? editor.item.text : editorSeed
     var id = editingId
     composerOpen = false
     editingId = ""
@@ -288,7 +282,7 @@ Panel {
       service.updateText(id, text)
     }
     if (!asking) Qt.callLater(function() {
-      if (root.opened) search.forceActiveFocus()
+      if (root.opened && search.item) search.item.forceActiveFocus()
     })
   }
 
@@ -630,20 +624,24 @@ Panel {
           width: parent.width
           spacing: Style.space(8)
 
-          TextField {
+          Loader {
             id: search
+            active: root.opened
             width: parent.width - addButton.width - parent.spacing
             height: Style.spacing.controlHeight
-            placeholderText: "Search"
-            font.family: root.fontFamily
-            font.pixelSize: Style.font.body
-            verticalPadding: Math.max(0, (height - font.pixelSize) / 2 - 1)
-            foreground: root.foreground
-            onTextChanged: root.query = text
-            Keys.onEscapePressed: function(event) {
-              root.handleEscape()
-              event.accepted = true
+            sourceComponent: Component {
+              PlainField {
+                placeholderText: "Search"
+                color: root.foreground
+                placeholderColor: root.dim
+                font.family: root.fontFamily
+                font.pixelSize: Style.font.body
+                Component.onCompleted: text = root.query
+                onTextEdited: root.query = text
+                onEscapePressed: root.handleEscape()
+              }
             }
+            onLoaded: if (root.opened) item.forceActiveFocus()
           }
 
           Button {
@@ -853,7 +851,10 @@ Panel {
       FolderDialog {
         id: folderPicker
         title: "Notes folder"
-        onAccepted: dirField.text = root.localPath(selectedFolder)
+        onAccepted: {
+          root.folderSeed = root.localPath(selectedFolder)
+          if (dirField.item) dirField.item.text = root.folderSeed
+        }
       }
 
       Item {
@@ -881,26 +882,28 @@ Panel {
             fontFamily: root.fontFamily
           }
 
-          TextField {
+          Loader {
             id: dirField
+            active: root.folderOpen && root.opened
             anchors.left: parent.left
             anchors.right: parent.right
             anchors.top: folderHeading.bottom
             anchors.topMargin: Style.space(8)
             height: Style.spacing.controlHeight
-            placeholderText: "/path/to/cloud/folder"
-            font.family: root.fontFamily
-            font.pixelSize: Style.font.body
-            foreground: root.foreground
-            Keys.onEscapePressed: function(event) {
-              root.cancelFolder()
-              event.accepted = true
+            sourceComponent: Component {
+              PlainField {
+                placeholderText: "/path/to/cloud/folder"
+                color: root.foreground
+                placeholderColor: root.dim
+                font.family: root.fontFamily
+                font.pixelSize: Style.font.body
+                Component.onCompleted: text = root.folderSeed
+                onTextEdited: root.folderError = ""
+                onEscapePressed: root.cancelFolder()
+                onReturnPressed: root.commitFolder()
+              }
             }
-            Keys.onReturnPressed: function(event) {
-              root.commitFolder()
-              event.accepted = true
-            }
-            onTextChanged: root.folderError = ""
+            onLoaded: item.forceActiveFocus()
           }
 
           Text {
@@ -985,31 +988,33 @@ Panel {
             fontFamily: root.fontFamily
           }
 
-          TextEdit {
+          Loader {
             id: editor
+            active: root.composerOpen && root.opened
             anchors.left: parent.left
             anchors.right: parent.right
             anchors.top: noteHeading.bottom
             anchors.bottom: done.top
             anchors.topMargin: Style.space(8)
             anchors.bottomMargin: Style.space(8)
-            enabled: root.composerOpen
-            wrapMode: TextEdit.Wrap
-            selectByMouse: true
-            color: root.foreground
-            selectionColor: Style.selectionFillFor(root.foreground, Color.accent)
-            font.family: root.fontFamily
-            font.pixelSize: Style.font.body
-            Keys.onEscapePressed: function(event) {
-              root.finishEdit()
-              event.accepted = true
+            sourceComponent: Component {
+              PlainField {
+                wrap: true
+                color: root.foreground
+                selectionColor: Style.selectionFillFor(root.foreground, Color.accent)
+                font.family: root.fontFamily
+                font.pixelSize: Style.font.body
+                Component.onCompleted: text = root.editorSeed
+                onEscapePressed: root.finishEdit()
+              }
             }
+            onLoaded: item.forceActiveFocus()
           }
 
           Text {
             anchors.left: editor.left
             anchors.top: editor.top
-            visible: editor.text.length === 0
+            visible: !editor.item || editor.item.text.length === 0
             text: "Note"
             color: root.dim
             font.family: root.fontFamily
