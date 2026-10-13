@@ -826,6 +826,7 @@ Panel {
           anchors.leftMargin: Style.space(8)
           anchors.rightMargin: Style.space(8)
           text: root.dragLabel
+          textFormat: Text.PlainText
           elide: Text.ElideRight
           verticalAlignment: Text.AlignVCenter
           color: root.foreground
