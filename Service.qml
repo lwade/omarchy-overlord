@@ -17,14 +17,14 @@ Item {
   property int loadAttempts: 0
   property int loadGeneration: 0
   property string expectedPath: ""
-  property string checkedPath: ""
-  property int checkedGeneration: 0
-  property bool checkAgain: false
+  property bool admitAgain: false
   property string writePath: ""
   property int writeGeneration: 0
   property string writeMode: ""
+  property string pendingBody: ""
   property bool writeAgain: false
   property bool protectThenReload: false
+  readonly property url ioUrl: Qt.resolvedUrl("board-io")
 
   readonly property bool simple: board.simple === true
   readonly property bool confirmDelete: board.confirmDelete !== false
@@ -58,18 +58,24 @@ Item {
     root.startMkdir()
   }
 
+  function helper() {
+    return root.ioUrl.toString()
+  }
+
   function startMkdir() {
-    mkdir.command = root.defaultStore
-      ? ["mkdir", "-p", "-m", "0700", root.dataDir]
-      : ["mkdir", "-p", root.dataDir]
-    if (mkdir.running) mkdirAgain = true
-    else mkdir.running = true
+    ensureProc.command = [
+      root.helper(),
+      root.defaultStore ? "ensure-private" : "ensure",
+      root.dataDir
+    ]
+    if (ensureProc.running) mkdirAgain = true
+    else ensureProc.running = true
   }
 
   function protectDefaultStore(thenReload) {
     protectThenReload = thenReload
     if (!root.defaultStore) {
-      if (thenReload && root.boardPath === root.expectedPath) boardFile.reload()
+      if (thenReload && root.boardPath === root.expectedPath) root.admit()
       return
     }
     if (protectStore.running) return
@@ -142,42 +148,38 @@ Item {
     retryTimer.restart()
   }
 
-  function onBoardLoadFailed(error) {
-    if (boardPath !== expectedPath) return
-    loaded = false
-    if (error !== FileViewError.FileNotFound) {
-      root.retryLoad()
+  function admit() {
+    if (root.boardPath !== root.expectedPath) return
+    if (admitProc.running) {
+      admitAgain = true
       return
     }
-    root.confirmMissing(boardPath, loadGeneration)
+    admitProc.command = [root.helper(), "admit", root.boardPath]
+    admitProc.running = true
   }
 
-  function confirmMissing(path, gen) {
-    if (!root.sameLoad(path, gen)) return
-    checkedPath = path
-    checkedGeneration = gen
-    if (missingCheck.running) {
-      checkAgain = true
-      return
-    }
-    missingCheck.command = ["test", "!", "-e", path]
-    missingCheck.running = true
-  }
-
-  function onMissingChecked(exitCode) {
-    var path = checkedPath
-    var gen = checkedGeneration
-    if (checkAgain) {
-      checkAgain = false
-      root.confirmMissing(boardPath, loadGeneration)
+  function onAdmitted(exitCode) {
+    var path = boardPath
+    var gen = loadGeneration
+    if (admitAgain) {
+      admitAgain = false
+      root.admit()
       return
     }
     if (!root.sameLoad(path, gen)) return
-    if (exitCode !== 0) {
-      root.retryLoad()
+    if (exitCode === 0) {
+      root.applyRaw(admitOut.text)
       return
     }
-    root.requestWrite(path, gen, "create")
+    if (exitCode === 3) {
+      root.requestWrite(path, gen, "create")
+      return
+    }
+    if (exitCode === 2 || exitCode === 4 || exitCode === 5) {
+      console.warn("overlord: notes file refused (" + exitCode + ")")
+      return
+    }
+    root.retryLoad()
   }
 
   function requestWrite(path, gen, mode) {
@@ -186,34 +188,41 @@ Item {
     writePath = path
     writeGeneration = gen
     writeMode = mode
-    if (writeGuard.running) {
+    if (writer.running) {
       writeAgain = true
       return
     }
-    writeGuard.command = mode === "create"
-      ? ["test", "!", "-e", path, "-a", "!", "-L", path]
-      : ["test", "!", "-L", path]
-    writeGuard.running = true
+    pendingBody = mode === "create"
+      ? Model.serialize(Model.emptyBoard())
+      : Model.serialize(board)
+    var ioMode = mode === "create" && root.defaultStore ? "create-private" : mode
+    writer.stdinEnabled = true
+    writer.command = [root.helper(), ioMode, path]
+    writer.running = true
   }
 
-  function onWriteGuard(exitCode) {
+  function onWriterStarted() {
+    writer.write(root.pendingBody)
+    writer.stdinEnabled = false
+  }
+
+  function onWriter(exitCode) {
     var path = writePath
     var gen = writeGeneration
     var mode = writeMode
+    var body = pendingBody
     if (writeAgain) {
       writeAgain = false
       root.requestWrite(boardPath, loadGeneration, loaded ? "save" : "create")
       return
     }
-    if (exitCode !== 0 || !root.sameLoad(path, gen)) return
+    if (!root.sameLoad(path, gen)) return
     if (mode === "create") {
-      root.applyRaw("")
-      if (root.loaded && root.sameLoad(path, gen))
-        boardFile.setText(Model.serialize(board))
+      if (exitCode === 0) root.applyRaw(body)
+      else if (exitCode === 17) root.admit()
       return
     }
-    if (!loaded) return
-    boardFile.setText(Model.serialize(board))
+    if (exitCode === 0 && root.defaultStore) root.protectDefaultStore(false)
   }
 
   function applyRaw(raw) {
@@ -242,29 +251,21 @@ Item {
   Timer {
     id: retryTimer
     interval: 1000
-    onTriggered: boardFile.reload()
+    onTriggered: root.admit()
   }
 
   Process {
-    id: missingCheck
-    onExited: function(exitCode) { root.onMissingChecked(exitCode) }
-  }
-
-  Process {
-    id: writeGuard
-    onExited: function(exitCode) { root.onWriteGuard(exitCode) }
-  }
-
-  Process {
-    id: mkdir
-    command: ["mkdir", "-p", root.dataDir]
-    onExited: {
+    id: ensureProc
+    onExited: function(exitCode) {
       if (root.mkdirAgain) {
         root.mkdirAgain = false
         root.startMkdir()
         return
       }
-      if (root.boardPath !== root.expectedPath) return
+      if (exitCode !== 0 || root.boardPath !== root.expectedPath) {
+        if (exitCode !== 0) console.warn("overlord: notes path refused")
+        return
+      }
       root.protectDefaultStore(true)
     }
   }
@@ -275,19 +276,21 @@ Item {
       if (!root.protectThenReload) return
       root.protectThenReload = false
       if (root.boardPath !== root.expectedPath) return
-      boardFile.reload()
+      root.admit()
     }
   }
 
-  FileView {
-    id: boardFile
-    path: root.boardPath
-    watchChanges: false
-    atomicWrites: true
-    printErrors: false
-    onLoaded: root.applyRaw(text())
-    onLoadFailed: function(error) { root.onBoardLoadFailed(error) }
-    onSaved: if (root.defaultStore) root.protectDefaultStore(false)
+  Process {
+    id: admitProc
+    stdout: StdioCollector { id: admitOut }
+    onExited: function(exitCode) { root.onAdmitted(exitCode) }
+  }
+
+  Process {
+    id: writer
+    stdinEnabled: true
+    onStarted: root.onWriterStarted()
+    onExited: function(exitCode) { root.onWriter(exitCode) }
   }
 
   Component.onCompleted: {

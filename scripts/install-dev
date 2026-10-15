@@ -12,12 +12,13 @@ refuse() {
 }
 
 path=$dest
-while true; do
+while [[ $path == /* ]]; do
   if [[ -L $path ]]; then
     refuse "refusing to install: $path is a symlink"
   fi
-  [[ $path == "$plugins" || $path == / ]] && break
+  [[ $path == / ]] && break
   path=${path%/*}
+  [[ -n $path ]] || path=/
 done
 
 if [[ -e $dest && ! -d $dest ]]; then

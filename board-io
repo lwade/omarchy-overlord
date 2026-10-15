@@ -1,0 +1,151 @@
+#!/usr/bin/env python3
+import errno
+import os
+import stat
+import sys
+
+CAP = 1024 * 1024
+
+
+def fail(code):
+    raise SystemExit(code)
+
+
+def names_of(path):
+    if not isinstance(path, str) or not path.startswith("/") or "\0" in path:
+        fail(4)
+    names = [part for part in path.split("/") if part]
+    if not names or any(part in (".", "..") for part in names):
+        fail(4)
+    return names
+
+
+def open_root():
+    return os.open("/", os.O_RDONLY | os.O_DIRECTORY)
+
+
+def ensure(path, private):
+    names = names_of(path)
+    fd = open_root()
+    try:
+        for name in names:
+            try:
+                st = os.lstat(name, dir_fd=fd)
+            except FileNotFoundError:
+                try:
+                    os.mkdir(name, 0o700 if private else 0o777, dir_fd=fd)
+                except FileExistsError:
+                    pass
+                st = os.lstat(name, dir_fd=fd)
+            if stat.S_ISLNK(st.st_mode):
+                fail(2)
+            if not stat.S_ISDIR(st.st_mode):
+                fail(4)
+            nxt = os.open(name, os.O_RDONLY | os.O_DIRECTORY | os.O_NOFOLLOW, dir_fd=fd)
+            os.close(fd)
+            fd = nxt
+    finally:
+        os.close(fd)
+
+
+def open_parent(path):
+    names = names_of(path)
+    fd = open_root()
+    try:
+        for part in names[:-1]:
+            st = os.lstat(part, dir_fd=fd)
+            if stat.S_ISLNK(st.st_mode):
+                fail(2)
+            if not stat.S_ISDIR(st.st_mode):
+                fail(4)
+            nxt = os.open(part, os.O_RDONLY | os.O_DIRECTORY | os.O_NOFOLLOW, dir_fd=fd)
+            os.close(fd)
+            fd = nxt
+        owned = fd
+        fd = None
+        return owned, names[-1]
+    finally:
+        if fd is not None:
+            os.close(fd)
+
+
+def admit(path):
+    dirfd, name = open_parent(path)
+    fd = None
+    try:
+        try:
+            st = os.lstat(name, dir_fd=dirfd)
+        except FileNotFoundError:
+            fail(3)
+        if stat.S_ISLNK(st.st_mode):
+            fail(2)
+        if not stat.S_ISREG(st.st_mode):
+            fail(4)
+        if st.st_size > CAP:
+            fail(5)
+        fd = os.open(name, os.O_RDONLY | os.O_NOFOLLOW, dir_fd=dirfd)
+    finally:
+        os.close(dirfd)
+    try:
+        data = os.read(fd, CAP + 1)
+    finally:
+        os.close(fd)
+    if len(data) > CAP:
+        fail(5)
+    sys.stdout.buffer.write(data)
+
+
+def write_file(path, create, mode):
+    body = sys.stdin.buffer.read(CAP + 1)
+    if len(body) > CAP:
+        fail(5)
+    dirfd, name = open_parent(path)
+    flags = os.O_WRONLY | os.O_NOFOLLOW
+    flags |= os.O_CREAT | os.O_EXCL if create else os.O_TRUNC
+    try:
+        try:
+            fd = os.open(name, flags, mode, dir_fd=dirfd)
+        except FileNotFoundError:
+            fail(3)
+        except FileExistsError:
+            fail(17)
+        except OSError as exc:
+            if exc.errno == errno.ELOOP:
+                fail(2)
+            if exc.errno == errno.EEXIST:
+                fail(17)
+            fail(4)
+    finally:
+        os.close(dirfd)
+    try:
+        view = memoryview(body)
+        while view:
+            written = os.write(fd, view)
+            view = view[written:]
+        os.fsync(fd)
+    finally:
+        os.close(fd)
+
+
+def main():
+    if len(sys.argv) != 3:
+        fail(4)
+    mode, path = sys.argv[1], sys.argv[2]
+    if mode == "ensure":
+        ensure(path, False)
+    elif mode == "ensure-private":
+        ensure(path, True)
+    elif mode == "admit":
+        admit(path)
+    elif mode == "create":
+        write_file(path, True, 0o666)
+    elif mode == "create-private":
+        write_file(path, True, 0o600)
+    elif mode == "save":
+        write_file(path, False, 0o600)
+    else:
+        fail(4)
+
+
+if __name__ == "__main__":
+    main()
