@@ -256,7 +256,7 @@ Panel {
     var card = Model.find(board, id)
     if (!card || !boardReady()) return
     editingId = id
-    editorSeed = card.text
+    editorSeed = Model.clipText(card.text)
     composerOpen = true
   }
 

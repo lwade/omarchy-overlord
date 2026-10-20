@@ -1,6 +1,9 @@
 .pragma library
 
 var DAY_MS = 24 * 60 * 60 * 1000
+var MAX_CARDS = 500
+var MAX_TEXT = 8192
+var MAX_ID = 64
 
 function emptyStats() {
   return { do: 0, schedule: 0, delegate: 0, eliminate: 0 }
@@ -68,12 +71,31 @@ function copy(card) {
   }
 }
 
+function fits(data) {
+  if (!data || !Array.isArray(data.cards) || data.cards.length > MAX_CARDS) return false
+  var cards = data.cards
+  for (var i = 0; i < cards.length; i++) {
+    var card = cards[i]
+    if (!card || typeof card !== "object") continue
+    if (typeof card.id === "string" && card.id.length > MAX_ID) return false
+    if (typeof card.text === "string" && card.text.length > MAX_TEXT) return false
+  }
+  return true
+}
+
+function clipText(text) {
+  var next = String(text || "")
+  return next.length > MAX_TEXT ? next.slice(0, MAX_TEXT) : next
+}
+
 function normalize(card) {
   if (!card || !card.id) return null
   var text = typeof card.text === "string" ? card.text : ""
-  if (!text.trim()) return null
+  if (!text.trim() || text.length > MAX_TEXT) return null
+  var id = String(card.id)
+  if (!id || id.length > MAX_ID) return null
   return {
-    id: String(card.id),
+    id: id,
     text: text,
     urgent: flag(card.urgent, true),
     important: flag(card.important, true),
@@ -98,6 +120,7 @@ function parse(raw) {
   try {
     var data = JSON.parse(raw)
     if (!data || data.version !== 1 || !Array.isArray(data.cards)) return emptyBoard()
+    if (!fits(data)) return null
     var cards = []
     for (var i = 0; i < data.cards.length; i++) {
       var card = normalize(data.cards[i])
@@ -130,7 +153,7 @@ function quadrant(card) {
 }
 
 function summary(text) {
-  var lines = String(text || "").split("\n")
+  var lines = clipText(text).split("\n")
   for (var i = 0; i < lines.length; i++) {
     var line = lines[i].trim()
     if (line) return line
@@ -154,6 +177,7 @@ function inQuadrant(board, name, query) {
     if (quadrant(cards[i]) !== name) continue
     if (q && String(cards[i].text).toLowerCase().indexOf(q) === -1) continue
     out.push(cards[i])
+    if (out.length >= MAX_CARDS) break
   }
   return out
 }
@@ -161,7 +185,7 @@ function inQuadrant(board, name, query) {
 function create(text, now) {
   return {
     id: now.toString(36) + Math.random().toString(36).slice(2, 8),
-    text: String(text),
+    text: clipText(text),
     urgent: true,
     important: true,
     delegatedAt: null,
@@ -211,7 +235,7 @@ function withText(board, id, text, now) {
       continue
     }
     var next = copy(card)
-    next.text = String(text)
+    next.text = clipText(text)
     next.updatedAt = now
     cards.push(next)
   }
@@ -241,9 +265,10 @@ function countsOnFile(name) {
 }
 
 function added(board, text, now, quadrant) {
+  var cards = (board.cards || []).slice()
+  if (cards.length >= MAX_CARDS) return board
   var card = create(text, now)
   if (quadrant && quadrant !== "do") card = placeCard(card, quadrant, now)
-  var cards = (board.cards || []).slice()
   cards.unshift(card)
   if (!countsOnFile(quadrant)) return boardOf(board, cards)
   return boardOf(board, cards, { stats: bumpStats(board, statKey(quadrant), 1) })

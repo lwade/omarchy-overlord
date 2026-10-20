@@ -133,7 +133,7 @@ Item {
     if (!text.trim()) return true
     try {
       var data = JSON.parse(text)
-      return !!(data && data.version === 1 && Array.isArray(data.cards))
+      return !!(data && data.version === 1 && Array.isArray(data.cards) && Model.fits(data))
     } catch (e) {
       return false
     }
@@ -143,9 +143,17 @@ Item {
     return gen === loadGeneration && path === boardPath && path === expectedPath
   }
 
-  function retryLoad() {
-    if (loadAttempts >= 3) return
+  function budget() {
+    if (loadAttempts >= 3) {
+      console.warn("overlord: notes file refused")
+      return false
+    }
     loadAttempts++
+    return true
+  }
+
+  function retryLoad() {
+    if (!root.budget()) return
     retryTimer.restart()
   }
 
@@ -174,6 +182,7 @@ Item {
       return
     }
     if (exitCode === 3) {
+      if (!root.budget()) return
       root.requestWrite(path, gen, "create")
       return
     }
@@ -222,7 +231,10 @@ Item {
     if (!root.sameLoad(path, gen)) return
     if (mode === "create") {
       if (exitCode === 0) root.applyRaw(body)
-      else if (exitCode === 17) root.admit()
+      else if (exitCode === 17) {
+        if (!root.budget()) return
+        root.admit()
+      }
       return
     }
     if (exitCode === 0 && root.defaultStore) root.protectDefaultStore(false)
@@ -237,6 +249,11 @@ Item {
     }
     retryTimer.stop()
     var parsed = Model.parse(raw)
+    if (!parsed) {
+      loaded = false
+      console.warn("overlord: notes file refused")
+      return
+    }
     var flushed = Model.flush(parsed, Date.now())
     board = flushed
     loaded = true

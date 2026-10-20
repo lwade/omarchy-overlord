@@ -325,4 +325,35 @@ TestCase {
     compare(next.confirmDelete, true)
     verify(Model.flush(next, now) === next)
   }
+
+  function test_parseRefusesAnUnboundedBoard() {
+    var cards = []
+    var i
+    for (i = 0; i < Model.MAX_CARDS + 1; i++)
+      cards.push({ id: "c" + i, text: "n" })
+    verify(Model.parse(JSON.stringify({ version: 1, cards: cards })) === null)
+    verify(Model.fits({ cards: cards }) === false)
+
+    var longText = ""
+    for (i = 0; i < Model.MAX_TEXT + 1; i++) longText += "x"
+    verify(Model.parse(JSON.stringify({
+      version: 1,
+      cards: [{ id: "a", text: longText }]
+    })) === null)
+
+    var longId = ""
+    for (i = 0; i < Model.MAX_ID + 1; i++) longId += "i"
+    verify(Model.parse(JSON.stringify({
+      version: 1,
+      cards: [{ id: longId, text: "n" }]
+    })) === null)
+
+    var ok = []
+    for (i = 0; i < Model.MAX_CARDS; i++)
+      ok.push({ id: "k" + i, text: "n" })
+    var board = Model.parse(JSON.stringify({ version: 1, cards: ok }))
+    compare(board.cards.length, Model.MAX_CARDS)
+    compare(Model.added(board, "more", 1).cards.length, Model.MAX_CARDS)
+    compare(Model.clipText(longText).length, Model.MAX_TEXT)
+  }
 }
