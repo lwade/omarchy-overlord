@@ -25,6 +25,7 @@ Item {
   property bool writeAgain: false
   property bool protectThenReload: false
   readonly property url ioUrl: Qt.resolvedUrl("board-io")
+  readonly property int ioLimitMs: 10000
 
   readonly property bool simple: board.simple === true
   readonly property bool confirmDelete: board.confirmDelete !== false
@@ -156,6 +157,7 @@ Item {
     }
     admitProc.command = [root.helper(), "admit", root.boardPath]
     admitProc.running = true
+    admitWatch.restart()
   }
 
   function onAdmitted(exitCode) {
@@ -199,6 +201,7 @@ Item {
     writer.stdinEnabled = true
     writer.command = [root.helper(), ioMode, path]
     writer.running = true
+    writeWatch.restart()
   }
 
   function onWriterStarted() {
@@ -283,14 +286,32 @@ Item {
   Process {
     id: admitProc
     stdout: StdioCollector { id: admitOut }
-    onExited: function(exitCode) { root.onAdmitted(exitCode) }
+    onExited: function(exitCode) {
+      admitWatch.stop()
+      root.onAdmitted(exitCode)
+    }
+  }
+
+  Timer {
+    id: admitWatch
+    interval: root.ioLimitMs
+    onTriggered: if (admitProc.running) admitProc.running = false
   }
 
   Process {
     id: writer
     stdinEnabled: true
     onStarted: root.onWriterStarted()
-    onExited: function(exitCode) { root.onWriter(exitCode) }
+    onExited: function(exitCode) {
+      writeWatch.stop()
+      root.onWriter(exitCode)
+    }
+  }
+
+  Timer {
+    id: writeWatch
+    interval: root.ioLimitMs
+    onTriggered: if (writer.running) writer.running = false
   }
 
   Component.onCompleted: {
