@@ -66,15 +66,15 @@ BarWidget {
     anchors.fill: parent
     bar: root.bar
     tooltipText: "Open Overlord"
-    iconComponent: Component {
-      Item {
-        anchors.fill: parent
-        Star {
-          anchors.centerIn: parent
-          iconSize: Math.min(parent.width, parent.height) * 0.82
-          color: root.bar && root.bar.barForeground ? root.bar.barForeground : Color.foreground
-        }
-      }
+    // Not an iconComponent: the shell scales that from the shape bounds, and
+    // this mark's bounds come back empty, so the star is pushed out of the slot.
+    hasVisualContent: true
+
+    Star {
+      anchors.centerIn: parent
+      iconSize: Style.bar.iconSize
+      color: button.foreground
+      layered: false
     }
     onPressed: function(buttonCode) {
       if (buttonCode === Qt.LeftButton) root.toggle()

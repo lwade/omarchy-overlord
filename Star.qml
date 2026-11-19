@@ -7,6 +7,8 @@ Item {
 
   property real iconSize: 16
   property color color: "transparent"
+  // The bar does not repaint a layer texture made for this mark.
+  property bool layered: true
   readonly property real dpr: Screen.devicePixelRatio > 1 ? Screen.devicePixelRatio : 1
   readonly property real stroke: Math.max(1.25, iconSize * 0.075)
   readonly property string circlePath: {
@@ -46,7 +48,7 @@ Item {
     anchors.fill: parent
     antialiasing: true
     preferredRendererType: Shape.CurveRenderer
-    layer.enabled: true
+    layer.enabled: root.layered
     layer.smooth: true
     layer.samples: 8
     layer.textureSize: Qt.size(Math.ceil(root.width * root.dpr * 2), Math.ceil(root.height * root.dpr * 2))

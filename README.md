@@ -34,7 +34,7 @@ Eliminate will delete immediately unless Confirm is toggled on.
 
 <img src="docs/confirm-delete.gif" alt="Confirm delete" width="50%">
 
-Delegate drops it after 24 hours.
+Delegate drops it after 72 hours.
 
 <img src="docs/delegate.gif" alt="Delegate" width="50%">
 
@@ -53,6 +53,15 @@ omarchy plugin add https://github.com/lwade/omarchy-overlord.git --enable
 ```
 
 No extra packages. The plugin uses the Omarchy shell only. License: MIT.
+
+To update an install that is already a git checkout:
+
+```sh
+omarchy plugin update io.github.lwade.overlord
+omarchy restart shell
+```
+
+That follows the repository's current commit, not a release tag. The service stays loaded, so restart the shell after the update.
 
 ## Managing notes
 

@@ -7,6 +7,7 @@ Rectangle {
 
   property string noteId: ""
   property string label: ""
+  property string meta: ""
   property bool dragging: false
   property bool fading: false
   property bool showDelete: false
@@ -31,9 +32,23 @@ Rectangle {
   border.width: 0
 
   Text {
+    id: metaText
+    anchors.right: parent.right
+    anchors.rightMargin: card.showDelete ? Style.space(26) : Style.space(4)
+    anchors.verticalCenter: parent.verticalCenter
+    visible: card.meta !== ""
+    text: card.meta
+    textFormat: Text.PlainText
+    color: card.dim
+    font.family: card.fontFamily
+    font.pixelSize: Style.font.caption
+  }
+
+  Text {
     anchors.fill: parent
     anchors.leftMargin: showTick ? Style.space(22) : Style.space(4)
-    anchors.rightMargin: showDelete ? Style.space(26) : Style.space(4)
+    anchors.rightMargin: (card.showDelete ? Style.space(26) : Style.space(4))
+      + (metaText.visible ? metaText.implicitWidth + Style.space(6) : 0)
     text: card.label
     textFormat: Text.PlainText
     elide: Text.ElideRight

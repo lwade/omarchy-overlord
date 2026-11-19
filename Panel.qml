@@ -35,8 +35,10 @@ Panel {
   property string folderError: ""
   property string folderSeed: ""
   property string editorSeed: ""
+  property double nowMs: Date.now()
 
   readonly property var board: service && service.board ? service.board : Model.emptyBoard()
+  onBoardChanged: nowMs = Date.now()
   readonly property bool simple: service ? service.simple === true : false
   readonly property bool confirmDelete: service ? service.confirmDelete !== false : true
   readonly property int doCount: {
@@ -115,6 +117,14 @@ Panel {
     repeat: true
     running: root.bar !== null && root.service === null
     onTriggered: root.serviceLookup++
+  }
+
+  Timer {
+    interval: 60000
+    repeat: true
+    running: root.opened
+    triggeredOnStart: true
+    onTriggered: root.nowMs = Date.now()
   }
 
   function savedNotesDir() {
@@ -216,7 +226,7 @@ Panel {
   function handleEscape() {
     if (confirmOpen) cancelDelete()
     else if (folderOpen) cancelFolder()
-    else if (composerOpen) finishEdit()
+    else if (composerOpen) cancelEdit()
     else if (query) clearSearch()
     else close()
   }
@@ -245,6 +255,24 @@ Panel {
     if (boardReady() && id) service.remove(id)
   }
 
+  function columnName(key) {
+    if (key === "schedule") return "Schedule"
+    if (key === "delegate") return "Delegate"
+    if (key === "drop") return "Eliminate"
+    return "Do"
+  }
+
+  function hoursLeft(card) {
+    if (!card || typeof card.delegatedAt !== "number" || !isFinite(card.delegatedAt)) return ""
+    var elapsed = nowMs - card.delegatedAt
+    if (elapsed < 0) elapsed = 0
+    var windowHours = Math.round(Model.DELEGATE_MS / 3600000)
+    var spent = Math.floor(elapsed / 3600000)
+    var hours = windowHours - spent
+    if (hours < 0) hours = 0
+    return hours + "h"
+  }
+
   function beginAdd(quadrant) {
     newQuadrant = quadrant || "do"
     editingId = "new"
@@ -258,6 +286,18 @@ Panel {
     editingId = id
     editorSeed = Model.clipText(card.text)
     composerOpen = true
+  }
+
+  function cancelEdit() {
+    if (!composerOpen) return
+    composerOpen = false
+    editingId = ""
+    dragId = ""
+    dragLabel = ""
+    hoverKey = ""
+    Qt.callLater(function() {
+      if (root.opened && search.item) search.item.forceActiveFocus()
+    })
   }
 
   function finishEdit() {
@@ -374,7 +414,7 @@ Panel {
 
       Text {
         visible: cell.key === "delegate"
-        text: "clears 24h"
+        text: "clears 72h"
         color: root.dim
         font.family: root.fontFamily
         font.pixelSize: Style.font.caption
@@ -409,6 +449,7 @@ Panel {
             width: notes.width
             noteId: modelData.id
             label: Model.summary(modelData.text)
+            meta: parent.quadrantKey === "delegate" ? root.hoursLeft(modelData) : ""
             fading: parent.quadrantKey === "delegate"
             showTick: parent.quadrantKey === "do" || parent.quadrantKey === "schedule"
             tickTip: parent.quadrantKey === "schedule" ? "Scheduled" : "Done"
@@ -969,6 +1010,17 @@ Panel {
         visible: root.composerOpen
         z: 6
 
+        Item {
+          id: noteSaveKeys
+          Keys.onPressed: function(event) {
+            if (!root.composerOpen) return
+            var finish = event.key === Qt.Key_Return || event.key === Qt.Key_Enter
+            if (!finish || !(event.modifiers & Qt.ControlModifier)) return
+            root.finishEdit()
+            event.accepted = true
+          }
+        }
+
         MouseArea {
           anchors.fill: parent
           onClicked: root.finishEdit()
@@ -984,7 +1036,9 @@ Panel {
             id: noteHeading
             anchors.left: parent.left
             anchors.top: parent.top
-            text: "NOTE"
+            text: root.editingId === "new"
+              ? "New Note · " + root.columnName(root.newQuadrant)
+              : "Edit Note"
             foreground: root.foreground
             fontFamily: root.fontFamily
           }
@@ -995,37 +1049,41 @@ Panel {
             anchors.left: parent.left
             anchors.right: parent.right
             anchors.top: noteHeading.bottom
-            anchors.bottom: done.top
             anchors.topMargin: Style.space(8)
-            anchors.bottomMargin: Style.space(8)
+            readonly property int line: Math.max(Style.font.body + 4, Style.space(18))
+            readonly property int pad: 12
+            readonly property int minHeight: line * 6 + pad
+            readonly property int maxHeight: {
+              var room = parent.height - noteHeading.height - done.height - Style.space(8) * 3
+              return Math.max(minHeight, room)
+            }
+            height: {
+              var content = item ? item.contentHeight : line
+              return Math.max(minHeight, Math.min(maxHeight, Math.ceil(content) + pad + 4))
+            }
             sourceComponent: Component {
               PlainField {
                 wrap: true
+                placeholderText: "Note"
+                placeholderColor: root.dim
                 color: root.foreground
                 selectionColor: Style.selectionFillFor(root.foreground, Color.accent)
                 font.family: root.fontFamily
                 font.pixelSize: Style.font.body
                 Component.onCompleted: text = root.editorSeed
-                onEscapePressed: root.finishEdit()
+                keyHandler: noteSaveKeys
+                onEscapePressed: root.cancelEdit()
+                onReturnPressed: root.finishEdit()
               }
             }
             onLoaded: item.forceActiveFocus()
           }
 
-          Text {
-            anchors.left: editor.left
-            anchors.top: editor.top
-            visible: !editor.item || editor.item.text.length === 0
-            text: "Note"
-            color: root.dim
-            font.family: root.fontFamily
-            font.pixelSize: Style.font.body
-          }
-
           Button {
             id: done
             anchors.right: parent.right
-            anchors.bottom: parent.bottom
+            anchors.top: editor.bottom
+            anchors.topMargin: Style.space(8)
             text: "Done"
             bordered: true
             foreground: root.foreground

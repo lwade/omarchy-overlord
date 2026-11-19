@@ -292,7 +292,7 @@ TestCase {
 
   function test_flushRemovesOnlyStaleDelegatesAndCountsThem() {
     var now = 1700000000000
-    var due = now - Model.DAY_MS
+    var due = now - Model.DELEGATE_MS
     var fresh = due + 1
     var board = load([
       card("stale", "stale handoff", true, false, { delegatedAt: due }),
@@ -306,8 +306,8 @@ TestCase {
     var edge = load([
       card("edge", "edge", true, false, { delegatedAt: 1000 })
     ])
-    verify(Model.flush(edge, 1000 + Model.DAY_MS - 1) === edge)
-    var edged = Model.flush(edge, 1000 + Model.DAY_MS)
+    verify(Model.flush(edge, 1000 + Model.DELEGATE_MS - 1) === edge)
+    var edged = Model.flush(edge, 1000 + Model.DELEGATE_MS)
     compare(edged.cards.length, 0)
     compare(edged.stats.eliminate, 1)
 

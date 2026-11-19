@@ -1,6 +1,6 @@
 .pragma library
 
-var DAY_MS = 24 * 60 * 60 * 1000
+var DELEGATE_MS = 72 * 60 * 60 * 1000
 var MAX_CARDS = 500
 var MAX_TEXT = 8192
 var MAX_ID = 64
@@ -324,7 +324,7 @@ function flush(board, now) {
   var list = board && board.cards ? board.cards : []
   for (var i = 0; i < list.length; i++) {
     var card = list[i]
-    if (quadrant(card) === "delegate" && typeof card.delegatedAt === "number" && now - card.delegatedAt >= DAY_MS) {
+    if (quadrant(card) === "delegate" && typeof card.delegatedAt === "number" && now - card.delegatedAt >= DELEGATE_MS) {
       removed++
       continue
     }

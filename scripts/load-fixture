@@ -50,7 +50,7 @@ for (let i = 1; i <= 12; i++) {
 cards.push(
   { id: "del-sam", text: "Ask Sam", urgent: true, important: false, delegatedAt: now - 60 * 1000 },
   { id: "del-riley", text: "Ask Riley", urgent: true, important: false, delegatedAt: now - 2 * 60 * 1000 },
-  { id: "del-stale", text: "stale handoff", urgent: true, important: false, delegatedAt: now - 25 * 60 * 60 * 1000 },
+  { id: "del-stale", text: "stale handoff", urgent: true, important: false, delegatedAt: now - 73 * 60 * 60 * 1000 },
   { id: "drop-bin", text: "bin me", urgent: false, important: false }
 )
 for (const card of cards) {

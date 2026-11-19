@@ -15,9 +15,9 @@ After load, "stale handoff" is gone. That flush counts as Eliminate.
 7. Do, Schedule, Delegate, and Eliminate are all on the panel. The right column is not clipped. The gap outside the boxes matches the panel padding on every side.
 8. Do shows three notes. The long title is one elided line. "First line is the card" does not show the second line.
 9. Schedule shows about 10 rows and scrolls to `scroll 12`. Do is the same height as Schedule. Delegate and Eliminate stay at about 5 rows.
-10. Delegate notes are dim and italic. `clears 24h` sits on the same line as DELEGATE.
+10. Delegate notes are dim and italic, with hours left on the right (`72h` when just filed). `clears 72h` sits on the same line as DELEGATE.
 11. Search `scroll` leaves only the Schedule notes. Search `ASK` leaves Ask Sam and Ask Riley. Clearing the search restores the board. Escape clears the search before it closes the panel.
-12. Add creates a note in Do. The new card does not stick to the cursor. `+` on Schedule creates the note there, not in Do. Neither changes the handled line.
+12. Add creates a note in Do. The composer title is `New Note · Do`. `+` on Schedule titles it `New Note · Schedule` and creates the note there, not in Do. Escape abandons the new note and does not file it. Neither changes the handled line.
 13. Do notes have an empty tick on the left. The tip says Done. Clicking it removes the note with no dialog. The Do chip drops by one. The handled Do count goes up by one.
 14. Schedule notes have the same tick. The tip says Scheduled. Clicking it removes the note and the handled Schedule count goes up by one. Delegate and Eliminate notes have no tick.
 15. Drag a Do note onto Schedule. A ghost follows the pointer, and the note lands in Schedule. Releasing outside a box leaves it where it was. The handled line does not change.
