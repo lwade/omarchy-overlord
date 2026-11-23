@@ -1,6 +1,6 @@
 # Contributing
 
-Edit this clone, then copy it into the shell plugin directory. The shell rejects symlinks inside a plugin folder.
+Edit this clone, then copy it into the shell plugin directory. The shell rejects symlinks inside a plugin folder. `scripts/install-dev` refuses a destination that is a git checkout, because the copy uses `rsync --delete` and would remove `.git`. A normal `omarchy plugin add` clone is a git checkout. Move that directory aside, then run the script. It creates a plain copy.
 
 ```sh
 scripts/install-dev

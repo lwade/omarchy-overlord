@@ -4,6 +4,7 @@ var DELEGATE_MS = 72 * 60 * 60 * 1000
 var MAX_CARDS = 500
 var MAX_TEXT = 8192
 var MAX_ID = 64
+var MAX_BYTES = 1024 * 1024
 
 function emptyStats() {
   return { do: 0, schedule: 0, delegate: 0, eliminate: 0 }
@@ -69,6 +70,25 @@ function copy(card) {
     createdAt: card.createdAt,
     updatedAt: card.updatedAt
   }
+}
+
+function utf8Bytes(text) {
+  var n = 0
+  var s = String(text || "")
+  for (var i = 0; i < s.length; i++) {
+    var c = s.charCodeAt(i)
+    if (c < 0x80) n += 1
+    else if (c < 0x800) n += 2
+    else if (c >= 0xD800 && c <= 0xDBFF) {
+      n += 4
+      if (i + 1 < s.length) i += 1
+    } else n += 3
+  }
+  return n
+}
+
+function withinBytes(text) {
+  return utf8Bytes(text) <= MAX_BYTES
 }
 
 function fits(data) {

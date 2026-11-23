@@ -15,6 +15,7 @@ FocusScope {
   property int maximumLength: 8192
   property int pasteGeneration: 0
   property Item keyHandler: null
+  readonly property url pasteUrl: Qt.resolvedUrl("paste-io")
   readonly property real contentHeight: editor.contentHeight
   signal escapePressed()
   signal returnPressed()
@@ -43,12 +44,9 @@ FocusScope {
     pasteGeneration++
     var gen = pasteGeneration
     pasteTimer.gen = gen
-    pasteProc.command = [
-      "bash", "-c",
-      primary
-        ? "wl-paste -n -p -t text/plain | head -c 8193"
-        : "wl-paste -n -t text/plain | head -c 8193"
-    ]
+    // paste-io is the one PID Process.signal can reach. It kills the wl-paste
+    // session itself when that signal or its own one-second deadline arrives.
+    pasteProc.command = [pasteUrl.toString(), primary ? "primary" : "clipboard"]
     pasteProc.gen = gen
     pasteProc.running = true
     pasteTimer.restart()

@@ -23,6 +23,9 @@ Item {
   property string writeMode: ""
   property string pendingBody: ""
   property bool writeAgain: false
+  property var writingBoard: null
+  property var queuedBoard: null
+  property string saveError: ""
   property bool protectThenReload: false
   readonly property url ioUrl: Qt.resolvedUrl("board-io")
   readonly property int ioLimitMs: 10000
@@ -52,6 +55,10 @@ Item {
     retryTimer.stop()
     loaded = false
     expectedPath = boardPath
+    saveError = ""
+    writingBoard = null
+    queuedBoard = null
+    writeAgain = false
   }
 
   function ensureDir() {
@@ -89,43 +96,88 @@ Item {
     protectStore.running = true
   }
 
+  function draft() {
+    return queuedBoard || writingBoard || board
+  }
+
+  function noteSaveFailed(exitCode) {
+    saveError = exitCode === 5
+      ? "Not saved. The board is over 1 MiB."
+      : "Not saved. The board was left unchanged."
+    console.warn("overlord: notes file not saved (" + exitCode + ")")
+  }
+
+  function writeConfirmed(exitCode, exitStatus) {
+    if (exitCode !== 0) return false
+    if (exitStatus === 1 || Number(exitStatus) === 1) return false
+    if (String(exitStatus) === "CrashExit") return false
+    return true
+  }
+
   function commit(next) {
-    if (!loaded || !next || next === board) return
-    board = next
-    root.requestWrite(boardPath, loadGeneration, "save")
+    if (!loaded || !next || next === draft()) return true
+    var raw = Model.serialize(next)
+    if (!Model.withinBytes(raw)) {
+      saveError = "Not saved. The board is over 1 MiB."
+      console.warn("overlord: notes file not saved (5)")
+      return false
+    }
+    saveError = ""
+    if (writer.running) {
+      queuedBoard = next
+      writeAgain = true
+      return true
+    }
+    return root.beginSave(next, raw)
+  }
+
+  function beginSave(next, raw) {
+    if (!loaded || !root.sameLoad(boardPath, loadGeneration)) return false
+    writingBoard = next
+    queuedBoard = null
+    writeAgain = false
+    writePath = boardPath
+    writeGeneration = loadGeneration
+    writeMode = "save"
+    pendingBody = raw
+    writer.stdinEnabled = true
+    writer.command = [root.helper(), "save", boardPath]
+    writer.running = true
+    writeWatch.restart()
+    return true
   }
 
   function add(text, quadrant) {
-    if (!String(text || "").trim()) return
-    commit(Model.added(board, text, Date.now(), quadrant || "do"))
+    if (!String(text || "").trim()) return false
+    return commit(Model.added(draft(), text, Date.now(), quadrant || "do"))
   }
 
   function updateText(id, text) {
-    commit(Model.withText(board, id, text, Date.now()))
+    return commit(Model.withText(draft(), id, text, Date.now()))
   }
 
   function place(id, name) {
-    commit(Model.moved(board, id, name, Date.now()))
+    return commit(Model.moved(draft(), id, name, Date.now()))
   }
 
   function remove(id) {
-    commit(Model.without(board, id))
+    return commit(Model.without(draft(), id))
   }
 
   function tick(id) {
-    commit(Model.ticked(board, id))
+    return commit(Model.ticked(draft(), id))
   }
 
   function setSimple(value) {
-    commit(Model.withSimple(board, value))
+    return commit(Model.withSimple(draft(), value))
   }
 
   function setConfirmDelete(value) {
-    commit(Model.withConfirmDelete(board, value))
+    return commit(Model.withConfirmDelete(draft(), value))
   }
 
   function flushNow() {
-    commit(Model.flush(board, Date.now()))
+    return commit(Model.flush(draft(), Date.now()))
   }
 
   function boardTextOk(raw) {
@@ -218,26 +270,51 @@ Item {
     writer.stdinEnabled = false
   }
 
-  function onWriter(exitCode) {
+  function onWriter(exitCode, exitStatus) {
     var path = writePath
     var gen = writeGeneration
     var mode = writeMode
     var body = pendingBody
-    if (writeAgain) {
-      writeAgain = false
-      root.requestWrite(boardPath, loadGeneration, loaded ? "save" : "create")
+    var wrote = writingBoard
+    var again = writeAgain
+    var queued = queuedBoard
+    writeAgain = false
+    queuedBoard = null
+    writingBoard = null
+    if (!root.sameLoad(path, gen)) return
+    var confirmed = root.writeConfirmed(exitCode, exitStatus)
+    if (again) {
+      if (mode === "create" && exitCode === 17) {
+        if (root.budget()) root.admit()
+        return
+      }
+      if (mode === "save" && confirmed && wrote) {
+        board = wrote
+        saveError = ""
+        if (!queued && root.defaultStore) root.protectDefaultStore(false)
+      } else if (mode === "save" && !confirmed) {
+        root.noteSaveFailed(exitCode)
+      }
+      if (queued && loaded) root.commit(queued)
+      else if (!queued && mode === "create" && !confirmed && exitCode !== 17)
+        root.requestWrite(boardPath, loadGeneration, "create")
       return
     }
-    if (!root.sameLoad(path, gen)) return
     if (mode === "create") {
-      if (exitCode === 0) root.applyRaw(body)
+      if (confirmed) root.applyRaw(body)
       else if (exitCode === 17) {
         if (!root.budget()) return
         root.admit()
       }
       return
     }
-    if (exitCode === 0 && root.defaultStore) root.protectDefaultStore(false)
+    if (!confirmed) {
+      root.noteSaveFailed(exitCode)
+      return
+    }
+    if (wrote) board = wrote
+    saveError = ""
+    if (root.defaultStore) root.protectDefaultStore(false)
   }
 
   function applyRaw(raw) {
@@ -255,10 +332,10 @@ Item {
       return
     }
     var flushed = Model.flush(parsed, Date.now())
-    board = flushed
+    board = parsed
     loaded = true
     loadAttempts = 0
-    if (flushed !== parsed) root.requestWrite(boardPath, loadGeneration, "save")
+    if (flushed !== parsed) root.commit(flushed)
   }
 
   Timer {
@@ -319,9 +396,9 @@ Item {
     id: writer
     stdinEnabled: true
     onStarted: root.onWriterStarted()
-    onExited: function(exitCode) {
+    onExited: function(exitCode, exitStatus) {
       writeWatch.stop()
-      root.onWriter(exitCode)
+      root.onWriter(exitCode, exitStatus)
     }
   }
 

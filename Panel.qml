@@ -41,6 +41,7 @@ Panel {
   onBoardChanged: nowMs = Date.now()
   readonly property bool simple: service ? service.simple === true : false
   readonly property bool confirmDelete: service ? service.confirmDelete !== false : true
+  readonly property string saveError: service && service.saveError ? service.saveError : ""
   readonly property int doCount: {
     board
     return countIn("do")
@@ -305,23 +306,22 @@ Panel {
     if (!boardReady()) return
     var text = editor.item ? editor.item.text : editorSeed
     var id = editingId
+    var asking = false
+    if (service && id === "new") {
+      if (String(text || "").trim() && service.add(text, newQuadrant) === false) return
+    } else if (service && id && !String(text || "").trim()) {
+      if (confirmDelete) asking = true
+      else if (service.remove(id) === false) return
+    } else if (service && id) {
+      if (service.updateText(id, text) === false) return
+    }
     composerOpen = false
     editingId = ""
     dragId = ""
     dragLabel = ""
     hoverKey = ""
-    var asking = false
-    if (service && id === "new") {
-      if (String(text || "").trim()) service.add(text, newQuadrant)
-    } else if (service && id && !String(text || "").trim()) {
-      if (confirmDelete) {
-        askDelete(id)
-        asking = true
-      } else service.remove(id)
-    } else if (service && id) {
-      service.updateText(id, text)
-    }
-    if (!asking) Qt.callLater(function() {
+    if (asking) askDelete(id)
+    else Qt.callLater(function() {
       if (root.opened && search.item) search.item.forceActiveFocus()
     })
   }
@@ -650,6 +650,17 @@ Panel {
           width: parent.width
           text: root.handledLine
           color: root.dim
+          font.family: root.fontFamily
+          font.pixelSize: Style.font.caption
+          elide: Text.ElideRight
+        }
+
+        Text {
+          width: parent.width
+          visible: root.saveError !== "" && !root.composerOpen
+          text: root.saveError
+          textFormat: Text.PlainText
+          color: root.urgent
           font.family: root.fontFamily
           font.pixelSize: Style.font.caption
           elide: Text.ElideRight
@@ -1077,6 +1088,20 @@ Panel {
               }
             }
             onLoaded: item.forceActiveFocus()
+          }
+
+          Text {
+            anchors.left: parent.left
+            anchors.right: done.left
+            anchors.rightMargin: Style.space(8)
+            anchors.verticalCenter: done.verticalCenter
+            visible: root.saveError !== ""
+            text: root.saveError
+            textFormat: Text.PlainText
+            color: root.urgent
+            font.family: root.fontFamily
+            font.pixelSize: Style.font.caption
+            elide: Text.ElideRight
           }
 
           Button {

@@ -1,6 +1,8 @@
 #!/usr/bin/env python3
 import errno
 import os
+import secrets
+import signal
 import stat
 import sys
 
@@ -110,41 +112,142 @@ def admit(path):
     sys.stdout.buffer.write(data)
 
 
+def write_all(fd, body):
+    view = memoryview(body)
+    while view:
+        try:
+            written = os.write(fd, view)
+        except InterruptedError:
+            continue
+        if written <= 0:
+            fail(4)
+        view = view[written:]
+    try:
+        os.fsync(fd)
+    except OSError:
+        fail(4)
+
+
+def same_file(fd, dirfd, name):
+    try:
+        st_fd = os.fstat(fd)
+        st_name = os.lstat(name, dir_fd=dirfd)
+    except OSError:
+        return False
+    if stat.S_ISLNK(st_name.st_mode) or not stat.S_ISREG(st_name.st_mode):
+        return False
+    return st_fd.st_dev == st_name.st_dev and st_fd.st_ino == st_name.st_ino
+
+
+def exclusive_temp(dirfd):
+    flags = os.O_WRONLY | os.O_CREAT | os.O_EXCL
+    for _ in range(8):
+        name = ".overlord-write-{}-{}.tmp".format(os.getpid(), secrets.token_hex(8))
+        try:
+            fd, _st = open_regular(dirfd, name, flags, 0o600)
+        except FileExistsError:
+            continue
+        except OSError as exc:
+            if exc.errno in (errno.EEXIST, errno.ELOOP):
+                continue
+            fail(4)
+        return name, fd
+    fail(4)
+
+
+def write_create(dirfd, name, body, mode):
+    flags = os.O_WRONLY | os.O_CREAT | os.O_EXCL
+    try:
+        fd, _st = open_regular(dirfd, name, flags, mode)
+    except FileNotFoundError:
+        fail(3)
+    except FileExistsError:
+        fail(17)
+    except OSError as exc:
+        if exc.errno == errno.ELOOP:
+            fail(2)
+        if exc.errno == errno.EEXIST:
+            fail(17)
+        fail(4)
+    committed = False
+    try:
+        write_all(fd, body)
+        committed = True
+    finally:
+        os.close(fd)
+        if not committed:
+            try:
+                os.unlink(name, dir_fd=dirfd)
+            except FileNotFoundError:
+                pass
+
+
+def write_replace(dirfd, name, body):
+    # Do not open the live board with O_TRUNC. A short write must leave it intact.
+    try:
+        st = os.lstat(name, dir_fd=dirfd)
+    except FileNotFoundError:
+        fail(3)
+    if stat.S_ISLNK(st.st_mode):
+        fail(2)
+    if not stat.S_ISREG(st.st_mode):
+        fail(4)
+    tmp = None
+    fd = None
+    try:
+        tmp, fd = exclusive_temp(dirfd)
+        write_all(fd, body)
+        if not same_file(fd, dirfd, tmp):
+            fail(4)
+        try:
+            os.fchmod(fd, stat.S_IMODE(st.st_mode))
+            os.fsync(fd)
+        except OSError:
+            fail(4)
+        try:
+            current = os.lstat(name, dir_fd=dirfd)
+        except FileNotFoundError:
+            fail(3)
+        if stat.S_ISLNK(current.st_mode):
+            fail(2)
+        if not stat.S_ISREG(current.st_mode):
+            fail(4)
+        os.replace(tmp, name, src_dir_fd=dirfd, dst_dir_fd=dirfd)
+        tmp = None
+        try:
+            os.fsync(dirfd)
+        except OSError:
+            pass
+    finally:
+        if fd is not None:
+            os.close(fd)
+        if tmp is not None:
+            try:
+                os.unlink(tmp, dir_fd=dirfd)
+            except FileNotFoundError:
+                pass
+
+
 def write_file(path, create, mode):
     body = sys.stdin.buffer.read(CAP + 1)
     if len(body) > CAP:
         fail(5)
     dirfd, name = open_parent(path)
-    flags = os.O_WRONLY
-    flags |= os.O_CREAT | os.O_EXCL if create else os.O_TRUNC
     try:
-        try:
-            fd, _st = open_regular(dirfd, name, flags, mode)
-        except FileNotFoundError:
-            fail(3)
-        except FileExistsError:
-            fail(17)
-        except OSError as exc:
-            if exc.errno == errno.ELOOP:
-                fail(2)
-            if exc.errno == errno.EEXIST:
-                fail(17)
-            fail(4)
+        if create:
+            write_create(dirfd, name, body, mode)
+        else:
+            write_replace(dirfd, name, body)
     finally:
         os.close(dirfd)
-    try:
-        view = memoryview(body)
-        while view:
-            written = os.write(fd, view)
-            if written <= 0:
-                fail(4)
-            view = view[written:]
-        os.fsync(fd)
-    finally:
-        os.close(fd)
+
+
+def on_term(_signum, _frame):
+    raise SystemExit(143)
 
 
 def main():
+    signal.signal(signal.SIGTERM, on_term)
     if len(sys.argv) != 3:
         fail(4)
     mode, path = sys.argv[1], sys.argv[2]

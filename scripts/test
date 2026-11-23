@@ -11,4 +11,10 @@ for f in "$root"/tests/tst_*.qml; do
   echo "== $(basename "$f")"
   "$runner" -input "$f" || status=1
 done
+for f in "$root"/tests/test_*.py; do
+  echo "== $(basename "$f")"
+  python3 "$f" || status=1
+done
+echo "== test_dev_copy.sh"
+bash "$root/tests/test_dev_copy.sh" || status=1
 exit "$status"

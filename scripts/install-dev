@@ -11,6 +11,12 @@ refuse() {
   exit 1
 }
 
+refuse_git() {
+  if [[ -e $dest/.git || -L $dest/.git ]]; then
+    refuse "refusing to install: $dest is a git checkout; rsync --delete would remove .git"
+  fi
+}
+
 path=$dest
 while [[ $path == /* ]]; do
   if [[ -L $path ]]; then
@@ -24,6 +30,7 @@ done
 if [[ -e $dest && ! -d $dest ]]; then
   refuse "refusing to install: $dest is not a directory"
 fi
+refuse_git
 
 stage=$(mktemp -d)
 trap 'rm -rf "$stage"' EXIT
@@ -46,6 +53,7 @@ fi
 if [[ $(stat -c %d:%i .) != $(stat -c %d:%i "$dest") ]]; then
   refuse "refusing to install: $dest changed during install"
 fi
+refuse_git
 rsync -a --delete "$stage"/ ./
 omarchy-shell shell rescanPlugins >/dev/null
 echo "Installed $id to $dest"

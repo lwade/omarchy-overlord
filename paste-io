@@ -1,0 +1,81 @@
+#!/usr/bin/env python3
+"""Read the clipboard and stop the whole transfer at one second.
+
+Quickshell Process.signal targets one PID. A pipeline child can keep the
+clipboard open after that signal. This process is the one PID. It starts
+wl-paste in a new session and kills that session on SIGTERM and on the
+deadline, including when the read is still blocked.
+"""
+import os
+import signal
+import subprocess
+import sys
+
+CAP = 8193
+DEADLINE_S = 1
+
+
+def abort(_signum, _frame):
+    raise SystemExit(143)
+
+
+def kill_group(proc):
+    if proc is None or proc.pid is None:
+        return
+    for sig in (signal.SIGTERM, signal.SIGKILL):
+        if proc.poll() is not None:
+            break
+        try:
+            os.killpg(proc.pid, sig)
+        except (ProcessLookupError, PermissionError):
+            break
+        try:
+            proc.wait(timeout=0.2)
+            return
+        except subprocess.TimeoutExpired:
+            continue
+    try:
+        proc.wait(timeout=0.2)
+    except subprocess.TimeoutExpired:
+        pass
+
+
+def read_capped(stream):
+    chunks = []
+    got = 0
+    while got < CAP:
+        part = stream.read(CAP - got)
+        if not part:
+            break
+        chunks.append(part)
+        got += len(part)
+    return b"".join(chunks)
+
+
+def main():
+    if len(sys.argv) != 2 or sys.argv[1] not in ("primary", "clipboard"):
+        raise SystemExit(4)
+    cmd = ["wl-paste", "-n", "-t", "text/plain"]
+    if sys.argv[1] == "primary":
+        cmd = ["wl-paste", "-n", "-p", "-t", "text/plain"]
+    proc = None
+    data = b""
+    signal.signal(signal.SIGTERM, abort)
+    signal.signal(signal.SIGALRM, abort)
+    signal.alarm(DEADLINE_S)
+    try:
+        proc = subprocess.Popen(cmd, stdout=subprocess.PIPE, start_new_session=True)
+        data = read_capped(proc.stdout)
+        signal.alarm(0)
+    except SystemExit:
+        raise
+    except Exception:
+        raise SystemExit(1)
+    finally:
+        signal.alarm(0)
+        kill_group(proc)
+    sys.stdout.buffer.write(data)
+
+
+if __name__ == "__main__":
+    main()

@@ -356,4 +356,30 @@ TestCase {
     compare(Model.added(board, "more", 1).cards.length, Model.MAX_CARDS)
     compare(Model.clipText(longText).length, Model.MAX_TEXT)
   }
+
+  function test_byteCapIsSeparateFromTheCardCap() {
+    compare(Model.MAX_BYTES, 1024 * 1024)
+    compare(Model.utf8Bytes(""), 0)
+    compare(Model.utf8Bytes("a"), 1)
+    compare(Model.utf8Bytes("£"), 2)
+    compare(Model.utf8Bytes("€"), 3)
+    compare(Model.utf8Bytes("🙂"), 4)
+    var big = ""
+    var i
+    for (i = 0; i < 1024; i++) big += "a"
+    var cap = ""
+    for (i = 0; i < 1024; i++) cap += big
+    compare(Model.utf8Bytes(cap), Model.MAX_BYTES)
+    verify(Model.withinBytes(cap))
+    verify(Model.withinBytes(cap + "a") === false)
+
+    var text = ""
+    for (i = 0; i < 6000; i++) text += "n"
+    var cards = []
+    for (i = 0; i < 200; i++)
+      cards.push(card("c" + i, text, true, true))
+    var wide = Model.boardOf(null, cards)
+    verify(Model.fits(wide))
+    verify(Model.withinBytes(Model.serialize(wide)) === false)
+  }
 }
